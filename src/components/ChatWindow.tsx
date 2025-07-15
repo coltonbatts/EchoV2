@@ -1,11 +1,5 @@
 import React, { useEffect, useRef } from 'react'
-
-interface Message {
-  id: string
-  text: string
-  sender: 'user' | 'assistant'
-  timestamp: Date
-}
+import type { Message } from '../types/message'
 
 interface ChatWindowProps {
   messages: Message[]

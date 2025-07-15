@@ -1,79 +1,75 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-import requests
-import json
+import logging
+import os
+from contextlib import asynccontextmanager
 
-app = FastAPI(title="EchoV2 Backend", version="0.1.0")
+# Import configuration and routes
+from config.settings import get_settings
+from api.routes.health import router as health_router
+from api.routes.chat import router as chat_router
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:1420", "http://127.0.0.1:1420"],  # Tauri dev server
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# Import and register providers
+from core.models.registry import registry
+from core.plugins.ollama_provider import OllamaProvider
 
-class ChatRequest(BaseModel):
-    prompt: str
 
-class ChatResponse(BaseModel):
-    response: str
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan manager for startup and shutdown."""
+    # Startup
+    logging.info("Starting EchoV2 Backend...")
+    
+    # Register AI providers
+    registry.register(OllamaProvider, "ollama")
+    logging.info("Registered AI providers")
+    
+    # Initialize model manager (this will create provider instances)
+    from core.models.manager import model_manager
+    logging.info("Initialized model manager")
+    
+    yield
+    
+    # Shutdown
+    logging.info("Shutting down EchoV2 Backend...")
 
-@app.get("/")
-async def root():
-    return {"message": "EchoV2 Backend is running"}
 
-@app.get("/health")
-async def health_check():
-    try:
-        response = requests.get("http://localhost:11434/api/tags", timeout=5)
-        if response.status_code == 200:
-            return {"status": "healthy", "ollama": "connected"}
-        else:
-            return {"status": "unhealthy", "ollama": "disconnected"}
-    except requests.exceptions.RequestException:
-        return {"status": "unhealthy", "ollama": "disconnected"}
+def create_app() -> FastAPI:
+    """Create and configure the FastAPI application."""
+    settings = get_settings()
+    
+    # Configure logging
+    logging.basicConfig(
+        level=getattr(logging, settings.logging.level),
+        format=settings.logging.format
+    )
+    
+    # Create FastAPI app
+    app = FastAPI(
+        title="EchoV2 Backend",
+        version="0.2.0",
+        description="Modular AI chat backend with pluggable providers",
+        lifespan=lifespan
+    )
+    
+    # Add CORS middleware
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.cors.allowed_origins,
+        allow_credentials=settings.cors.allow_credentials,
+        allow_methods=settings.cors.allow_methods,
+        allow_headers=settings.cors.allow_headers,
+    )
+    
+    # Include routers
+    app.include_router(health_router)
+    app.include_router(chat_router)
+    
+    return app
 
-@app.post("/chat", response_model=ChatResponse)
-async def chat(request: ChatRequest):
-    try:
-        ollama_payload = {
-            "model": "mistral",
-            "prompt": request.prompt,
-            "stream": False
-        }
-        
-        response = requests.post(
-            "http://localhost:11434/api/generate",
-            json=ollama_payload,
-            timeout=60
-        )
-        
-        if response.status_code != 200:
-            raise HTTPException(
-                status_code=500, 
-                detail=f"Ollama API error: {response.status_code}"
-            )
-        
-        result = response.json()
-        return ChatResponse(response=result.get("response", "No response from model"))
-        
-    except requests.exceptions.ConnectionError:
-        raise HTTPException(
-            status_code=503, 
-            detail="Cannot connect to Ollama. Make sure Ollama is running on localhost:11434"
-        )
-    except requests.exceptions.Timeout:
-        raise HTTPException(
-            status_code=504, 
-            detail="Request to Ollama timed out"
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=500, 
-            detail=f"Internal server error: {str(e)}"
-        )
+
+# Create the app instance
+app = create_app()
 
 if __name__ == "__main__":
     import uvicorn

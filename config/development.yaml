@@ -1,0 +1,26 @@
+server:
+  host: "0.0.0.0"
+  port: 8000
+  debug: true
+
+cors:
+  allowed_origins:
+    - "http://localhost:1420"
+    - "http://127.0.0.1:1420"
+  allow_credentials: true
+  allow_methods: ["*"]
+  allow_headers: ["*"]
+
+ai_providers:
+  default: "ollama"
+  ollama:
+    base_url: "http://localhost:11434"
+    default_model: "mistral"
+    timeout: 60
+    api_endpoints:
+      generate: "/api/generate"
+      tags: "/api/tags"
+  
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"

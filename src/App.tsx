@@ -1,68 +1,31 @@
 import React, { useState } from 'react'
 import ChatWindow from './components/ChatWindow'
-
-interface Message {
-  id: string
-  text: string
-  sender: 'user' | 'assistant'
-  timestamp: Date
-}
+import { useChat } from './hooks/useChat'
+import { useConfig } from './hooks/useConfig'
 
 function App() {
-  const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
+  const { messages, isLoading, sendMessage } = useChat()
+  const { 
+    selectedProvider, 
+    selectedModel, 
+    providers, 
+    providerModels,
+    setSelectedProvider,
+    setSelectedModel 
+  } = useConfig()
 
-  const sendMessage = async () => {
+  const handleSendMessage = async () => {
     if (!input.trim() || isLoading) return
 
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      text: input,
-      sender: 'user',
-      timestamp: new Date()
-    }
-
-    setMessages(prev => [...prev, userMessage])
+    await sendMessage(input, selectedModel, selectedProvider)
     setInput('')
-    setIsLoading(true)
-
-    try {
-      const response = await fetch('http://localhost:8000/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ prompt: input })
-      })
-
-      const data = await response.json()
-      
-      const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        text: data.response,
-        sender: 'assistant',
-        timestamp: new Date()
-      }
-
-      setMessages(prev => [...prev, assistantMessage])
-    } catch (error) {
-      const errorMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        text: 'Error: Could not connect to backend. Make sure the FastAPI server is running.',
-        sender: 'assistant',
-        timestamp: new Date()
-      }
-      setMessages(prev => [...prev, errorMessage])
-    } finally {
-      setIsLoading(false)
-    }
   }
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
-      sendMessage()
+      handleSendMessage()
     }
   }
 
@@ -70,6 +33,37 @@ function App() {
     <div className="app">
       <header className="app-header">
         <h1>EchoV2 - Local AI Chat</h1>
+        <div className="config-section">
+          {providers && (
+            <div className="provider-selector">
+              <label>Provider:</label>
+              <select 
+                value={selectedProvider} 
+                onChange={(e) => setSelectedProvider(e.target.value)}
+                disabled={isLoading}
+              >
+                {providers.providers.map(provider => (
+                  <option key={provider} value={provider}>{provider}</option>
+                ))}
+              </select>
+            </div>
+          )}
+          
+          {selectedProvider && providerModels[selectedProvider] && (
+            <div className="model-selector">
+              <label>Model:</label>
+              <select 
+                value={selectedModel} 
+                onChange={(e) => setSelectedModel(e.target.value)}
+                disabled={isLoading}
+              >
+                {providerModels[selectedProvider].map(model => (
+                  <option key={model} value={model}>{model}</option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
       </header>
       
       <main className="app-main">
@@ -85,7 +79,7 @@ function App() {
             rows={3}
           />
           <button 
-            onClick={sendMessage} 
+            onClick={handleSendMessage} 
             disabled={!input.trim() || isLoading}
           >
             {isLoading ? 'Sending...' : 'Send'}
