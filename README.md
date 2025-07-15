@@ -4,13 +4,15 @@ A modular, extensible desktop application built with **Tauri**, **React**, **Typ
 
 ## ✨ Features
 
-- 🧩 **Plugin Architecture** - Easy integration of multiple AI providers
-- 🔧 **Modular Design** - Clean separation of concerns with service layers
-- 🎯 **Type Safety** - Full TypeScript integration across frontend
-- ⚙️ **Configuration Management** - Environment-based YAML configuration
-- 🔌 **Hot-Swappable Providers** - Switch between AI models dynamically
+- 🧩 **Advanced Plugin Architecture** - Hot-swappable AI providers with zero-restart deployment
+- 🔄 **Streaming Support** - Real-time responses from all providers (OpenAI, Anthropic, Ollama)
+- 🛠️ **Runtime Management** - Plugin discovery, configuration updates, and health monitoring via API
+- 🎯 **Type Safety** - Full TypeScript integration across frontend with comprehensive validation
+- ⚙️ **Configuration Management** - Environment-based YAML with runtime updates and validation
+- 🔌 **Multi-Provider Support** - OpenAI GPT, Anthropic Claude, and local Ollama models
 - 🖥️ **Desktop Native** - Cross-platform desktop app with Tauri
 - 🔒 **Local-First** - Support for local AI models (Ollama) and privacy
+- 📡 **Developer Tools** - Plugin template generator and comprehensive API documentation
 
 ## 🏗️ Architecture Overview
 
@@ -20,10 +22,18 @@ EchoV2 uses a **modular plugin architecture** that separates concerns and enable
 ```
 backend/
 ├── core/
-│   ├── models/           # AbstractAIProvider interface & registry
-│   └── plugins/          # AI provider implementations (Ollama, OpenAI, etc.)
+│   ├── models/           # AbstractAIProvider interface, registry & manager
+│   └── plugins/          # AI provider implementations
+│       ├── ollama_provider.py     # Local AI via Ollama
+│       ├── openai_provider.py     # OpenAI GPT models
+│       └── anthropic_provider.py  # Anthropic Claude models
 ├── services/             # Business logic layer
 ├── api/routes/           # RESTful API endpoints
+│   ├── chat.py          # Chat completion endpoints
+│   ├── health.py        # System health monitoring
+│   └── plugins.py       # Plugin management API
+├── utils/               # Developer tools
+│   └── plugin_template.py # Plugin template generator
 └── config/              # Settings and configuration management
 ```
 
@@ -87,41 +97,68 @@ The application will open as a desktop app with the backend running at `http://l
 
 ## 🔌 AI Provider Plugins
 
-EchoV2's plugin system makes it easy to add new AI providers:
+EchoV2's advanced plugin system supports hot-swappable AI providers with comprehensive management:
 
-### Currently Supported
-- **Ollama** - Local AI models (Mistral, Llama2, CodeLlama, etc.)
+### Built-in Providers
+- **🦙 Ollama** - Local AI models (Mistral, Llama3, CodeLlama, Gemma, etc.)
+  - ✅ Streaming responses
+  - ✅ Multiple model support
+  - ✅ Zero configuration for local development
 
-### Easy to Add
-- **OpenAI** - GPT models
-- **Anthropic** - Claude models  
-- **Google** - PaLM/Gemini models
-- **Custom APIs** - Any REST-based AI service
+- **🤖 OpenAI** - GPT models with full feature support
+  - ✅ GPT-4, GPT-3.5-turbo variants
+  - ✅ Streaming responses
+  - ✅ Function calling
+  - ✅ Vision capabilities
 
-### Adding a New Provider
+- **🧠 Anthropic** - Claude models with advanced capabilities
+  - ✅ Claude-3 (Opus, Sonnet, Haiku)
+  - ✅ Claude-2 series
+  - ✅ Streaming responses
+  - ✅ Vision and multimodal support
 
-1. Create a new provider class implementing `AbstractAIProvider`:
+### 🚀 Creating Custom Providers
+
+**Method 1: Use the Plugin Template Generator (Recommended)**
+```bash
+cd backend
+python utils/plugin_template.py \
+  --name "custom-ai" \
+  --display "Custom AI" \
+  --url "https://api.custom-ai.com" \
+  --model "custom-model-v1"
+```
+
+**Method 2: Manual Implementation**
 ```python
-# backend/core/plugins/openai_provider.py
-class OpenAIProvider(AbstractAIProvider):
+# backend/core/plugins/custom_provider.py
+class CustomProvider(AbstractAIProvider):
+    @property
+    def metadata(self) -> PluginMetadata:
+        return PluginMetadata(
+            name="Custom Provider",
+            capabilities=[PluginCapability.STREAMING],
+            # ... other metadata
+        )
+    
     async def chat_completion(self, request: ChatRequest) -> ChatResponse:
-        # Implementation here
+        # Your implementation here
         pass
 ```
 
-2. Register the provider in `main.py`:
-```python
-from core.plugins.openai_provider import OpenAIProvider
-registry.register(OpenAIProvider, "openai")
+**Configuration & Registration**
+```yaml
+# config/development.yaml
+ai_providers:
+  custom:
+    api_key: "your-api-key"
+    base_url: "https://api.custom-ai.com"
+    default_model: "custom-model-v1"
 ```
 
-3. Add configuration in `config/development.yaml`:
-```yaml
-ai_providers:
-  openai:
-    api_key: "your-api-key"
-    base_url: "https://api.openai.com/v1"
-    default_model: "gpt-4"
+```python
+# main.py
+registry.register(CustomProvider, "custom")
 ```
 
 ## ⚙️ Configuration
@@ -147,6 +184,14 @@ ai_providers:
     base_url: "http://localhost:11434"
     default_model: "mistral"
     timeout: 60
+  openai:
+    api_key: ""  # Set your OpenAI API key
+    default_model: "gpt-3.5-turbo"
+    timeout: 60
+  anthropic:
+    api_key: ""  # Set your Anthropic API key
+    default_model: "claude-3-sonnet-20240229"
+    max_tokens: 4096
 
 cors:
   allowed_origins: ["http://localhost:1420"]
@@ -160,6 +205,15 @@ cors:
 - `GET /chat/providers` - List available AI providers
 - `GET /chat/providers/{provider}/models` - Get models for a provider
 
+### Plugin Management API
+- `GET /plugins/` - List all registered providers
+- `GET /plugins/{name}/status` - Get provider health and status
+- `POST /plugins/{name}/reload` - Hot-reload provider with new config
+- `PUT /plugins/{name}/config` - Update provider configuration
+- `GET /plugins/{name}/config-schema` - Get configuration schema
+- `POST /plugins/discover` - Auto-discover plugins from directory
+- `GET /plugins/health` - Health check all providers
+
 ### Health & Monitoring
 - `GET /health` - System health check
 - `GET /health/{provider}` - Provider-specific health check
@@ -168,16 +222,26 @@ cors:
 ### Example Usage
 
 ```bash
-# Send a chat message
+# Send a chat message to specific provider
 curl -X POST "http://localhost:8000/chat" \
   -H "Content-Type: application/json" \
-  -d '{"prompt": "Hello, how are you?", "provider": "ollama", "model": "mistral"}'
+  -d '{"prompt": "Hello, how are you?", "provider": "openai", "model": "gpt-4"}'
 
-# Check system health
-curl "http://localhost:8000/health"
+# Enable streaming responses
+curl -X POST "http://localhost:8000/chat" \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "Tell me a story", "provider": "anthropic", "stream": true}'
 
-# List available providers
-curl "http://localhost:8000/chat/providers"
+# Hot-reload a provider with new configuration
+curl -X POST "http://localhost:8000/plugins/openai/reload" \
+  -H "Content-Type: application/json" \
+  -d '{"provider_name": "openai", "config": {"api_key": "sk-new-key...", "default_model": "gpt-4"}}'
+
+# Check provider health
+curl "http://localhost:8000/plugins/ollama/status"
+
+# List all providers
+curl "http://localhost:8000/plugins/"
 ```
 
 ## 🛠️ Development
@@ -300,16 +364,38 @@ Contributions are welcome! Please feel free to:
 4. Add tests if applicable
 5. Submit a pull request
 
+## 🔥 Plugin Architecture & Hot-Swapping
+
+EchoV2 features a production-ready plugin architecture with zero-downtime management:
+
+### 🚀 **Hot-Swapping Capabilities**
+- **Zero-restart provider updates** - Change configurations without stopping the service
+- **Dynamic plugin loading** - Add new providers at runtime
+- **Automatic failover** - Health monitoring with seamless fallbacks
+- **Configuration validation** - Real-time validation with detailed error reporting
+
+### 🛠️ **Developer Experience**
+- **Plugin template generator** - Generate boilerplate with `python utils/plugin_template.py`
+- **Comprehensive validation** - Type checking and configuration schema validation
+- **Live debugging** - Health check endpoints and detailed logging
+- **Auto-discovery** - Automatic detection of new plugins in directories
+
+### 📚 **Documentation**
+- **[Plugin Architecture Guide](PLUGIN_ARCHITECTURE.md)** - Complete implementation guide
+- **Configuration schemas** - Available via API endpoints
+- **Best practices** - Type safety, error handling, and performance tips
+
 ## 📋 Roadmap
 
-- [ ] **Additional AI Providers**: OpenAI, Anthropic, Google PaLM
-- [ ] **Message Persistence**: Database integration for chat history
-- [ ] **Conversation Management**: Save/load conversations
-- [ ] **Streaming Responses**: Real-time message streaming
-- [ ] **Plugin Hot-Loading**: Dynamic plugin management
-- [ ] **Multi-Model Chats**: Switch models mid-conversation
-- [ ] **Theme System**: Customizable UI themes
-- [ ] **Authentication**: User management and API key handling
+- [x] **Advanced Plugin Architecture** - Hot-swappable providers with runtime management ✅
+- [x] **Streaming Responses** - Real-time message streaming for all providers ✅
+- [x] **Multi-Provider Support** - OpenAI, Anthropic, Ollama integration ✅
+- [x] **Plugin Hot-Loading** - Dynamic plugin management ✅
+- [ ] **Message Persistence** - Database integration for chat history
+- [ ] **Conversation Management** - Save/load conversations
+- [ ] **Multi-Model Chats** - Switch models mid-conversation
+- [ ] **Theme System** - Customizable UI themes
+- [ ] **Authentication** - User management and API key handling
 
 ## 📄 License
 

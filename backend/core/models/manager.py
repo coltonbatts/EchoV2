@@ -13,10 +13,13 @@ class ModelManager:
     def __init__(self):
         self.settings = get_settings()
         self.default_provider = self.settings.ai_providers.get("default", "ollama")
-        self._initialize_providers()
+        self._initialized = False
     
-    def _initialize_providers(self):
-        """Initialize all configured providers."""
+    async def initialize_providers(self):
+        """Initialize all configured providers asynchronously."""
+        if self._initialized:
+            return
+        
         ai_config = self.settings.ai_providers
         
         for provider_name, config in ai_config.items():
@@ -24,10 +27,12 @@ class ModelManager:
                 continue
                 
             try:
-                registry.create_instance(provider_name, config)
+                await registry.create_instance(provider_name, config)
                 logger.info(f"Initialized provider: {provider_name}")
             except Exception as e:
                 logger.error(f"Failed to initialize provider {provider_name}: {e}")
+        
+        self._initialized = True
     
     async def chat_completion(
         self, 
@@ -35,6 +40,8 @@ class ModelManager:
         provider_name: Optional[str] = None
     ) -> ChatResponse:
         """Route chat completion request to appropriate provider."""
+        await self.initialize_providers()
+        
         provider_name = provider_name or self.default_provider
         provider = registry.get_instance(provider_name)
         

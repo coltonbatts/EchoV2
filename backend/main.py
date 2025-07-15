@@ -8,10 +8,13 @@ from contextlib import asynccontextmanager
 from config.settings import get_settings
 from api.routes.health import router as health_router
 from api.routes.chat import router as chat_router
+from api.routes.plugins import router as plugins_router
 
 # Import and register providers
 from core.models.registry import registry
 from core.plugins.ollama_provider import OllamaProvider
+from core.plugins.openai_provider import OpenAIProvider
+from core.plugins.anthropic_provider import AnthropicProvider
 
 
 @asynccontextmanager
@@ -22,16 +25,20 @@ async def lifespan(app: FastAPI):
     
     # Register AI providers
     registry.register(OllamaProvider, "ollama")
+    registry.register(OpenAIProvider, "openai")
+    registry.register(AnthropicProvider, "anthropic")
     logging.info("Registered AI providers")
     
     # Initialize model manager (this will create provider instances)
     from core.models.manager import model_manager
+    await model_manager.initialize_providers()
     logging.info("Initialized model manager")
     
     yield
     
     # Shutdown
     logging.info("Shutting down EchoV2 Backend...")
+    await registry.shutdown_all()
 
 
 def create_app() -> FastAPI:
@@ -64,6 +71,7 @@ def create_app() -> FastAPI:
     # Include routers
     app.include_router(health_router)
     app.include_router(chat_router)
+    app.include_router(plugins_router)
     
     return app
 
