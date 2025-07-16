@@ -14,6 +14,7 @@ A modular, extensible desktop application built with **Tauri**, **React**, **Typ
 - 🔌 **Multi-Provider Support** - OpenAI GPT, Anthropic Claude, and local Ollama models
 - 🖥️ **Desktop Native** - Cross-platform desktop app with Tauri
 - 🔒 **Local-First** - Support for local AI models (Ollama) and privacy
+- 💾 **SQLite Persistence** - Automatic conversation and message storage with cross-platform support
 - 📡 **Developer Tools** - Plugin template generator and comprehensive API documentation
 
 ## 🏗️ Architecture Overview
@@ -25,13 +26,20 @@ EchoV2 uses a **modular plugin architecture** that separates concerns and enable
 backend/
 ├── core/
 │   ├── models/           # AbstractAIProvider interface, registry & manager
-│   └── plugins/          # AI provider implementations
-│       ├── ollama_provider.py     # Local AI via Ollama
-│       ├── openai_provider.py     # OpenAI GPT models
-│       └── anthropic_provider.py  # Anthropic Claude models
+│   ├── plugins/          # AI provider implementations
+│   │   ├── ollama_provider.py     # Local AI via Ollama
+│   │   ├── openai_provider.py     # OpenAI GPT models
+│   │   └── anthropic_provider.py  # Anthropic Claude models
+│   └── database/         # SQLite persistence layer
+│       ├── config.py     # Database configuration & user data paths
+│       ├── session.py    # Async SQLAlchemy session management
+│       └── models.py     # Database models (conversations, messages)
 ├── services/             # Business logic layer
+│   ├── chat_service.py   # Chat logic with auto-persistence
+│   ├── conversation_service.py  # Database operations
+│   └── health_service.py # System health monitoring
 ├── api/routes/           # RESTful API endpoints
-│   ├── chat.py          # Chat completion endpoints
+│   ├── chat.py          # Chat completion endpoints (now with persistence)
 │   ├── health.py        # System health monitoring
 │   └── plugins.py       # Plugin management API
 ├── utils/               # Developer tools
@@ -240,11 +248,73 @@ cors:
   allowed_origins: ["http://localhost:1420"]
 ```
 
+## 💾 SQLite Persistence
+
+EchoV2 now features **automatic conversation and message storage** with SQLite, providing seamless chat history without requiring any configuration.
+
+### 🔧 **Key Features**
+- **✅ Automatic Storage** - All messages saved transparently to SQLite database
+- **✅ Cross-Platform** - User data stored in appropriate OS-specific directories
+- **✅ Backward Compatible** - Existing API interface unchanged
+- **✅ Conversation Tracking** - Messages grouped by conversation with auto-generated titles
+- **✅ Rich Metadata** - Provider, model, usage stats, and timestamps stored
+- **✅ Zero Configuration** - Database created automatically on first run
+
+### 📁 **Database Location**
+- **macOS**: `~/Library/Application Support/EchoV2/echo.db`
+- **Windows**: `%APPDATA%\EchoV2\echo.db`
+- **Linux**: `~/.local/share/EchoV2/echo.db`
+
+### 🔄 **How It Works**
+1. **Send a message** via `/chat` endpoint
+2. **User message** automatically saved to database
+3. **AI response** saved with metadata (provider, model, usage)
+4. **Conversation title** auto-generated from first message
+5. **Conversation ID** returned in API response for tracking
+
+### 📊 **Database Schema**
+```sql
+conversations (
+    id INTEGER PRIMARY KEY,
+    title TEXT,
+    created_at TIMESTAMP,
+    updated_at TIMESTAMP
+)
+
+messages (
+    id INTEGER PRIMARY KEY,
+    conversation_id INTEGER REFERENCES conversations(id),
+    role TEXT,  -- 'user' or 'assistant'
+    content TEXT,
+    timestamp TIMESTAMP,
+    provider TEXT,
+    model TEXT,
+    message_metadata JSON  -- Usage stats, finish_reason, etc.
+)
+```
+
+### 🔗 **API Integration**
+```bash
+# Send message with optional conversation_id
+curl -X POST "http://localhost:8000/chat" \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "Hello!", "provider": "ollama", "conversation_id": 123}'
+
+# Response includes conversation_id for tracking
+{
+  "response": "Hello! How can I help you today?",
+  "model": "mistral",
+  "provider": "ollama",
+  "conversation_id": 123,
+  "metadata": {...}
+}
+```
+
 ## 📡 API Endpoints
 
 ### Chat Endpoints
-- `POST /chat` - Send a message to the default provider
-- `POST /chat/conversation` - Send multi-turn conversation
+- `POST /chat` - Send a message to the default provider (now with persistence)
+- `POST /chat/conversation` - Send multi-turn conversation (now with persistence)
 - `GET /chat/providers` - List available AI providers
 - `GET /chat/providers/{provider}/models` - Get models for a provider
 
@@ -265,10 +335,15 @@ cors:
 ### Example Usage
 
 ```bash
-# Send a chat message to specific provider
+# Send a chat message to specific provider (now with persistence)
 curl -X POST "http://localhost:8000/chat" \
   -H "Content-Type: application/json" \
   -d '{"prompt": "Hello, how are you?", "provider": "openai", "model": "gpt-4"}'
+
+# Continue a conversation using conversation_id
+curl -X POST "http://localhost:8000/chat" \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "Tell me more", "provider": "openai", "conversation_id": 123}'
 
 # Enable streaming responses
 curl -X POST "http://localhost:8000/chat" \
@@ -438,8 +513,8 @@ EchoV2 features a production-ready plugin architecture with zero-downtime manage
 - [x] **Multi-Provider Support** - OpenAI, Anthropic, Ollama integration ✅
 - [x] **Plugin Hot-Loading** - Dynamic plugin management ✅
 - [x] **Standalone Mac App** - PyInstaller + Tauri bundling with auto-backend management ✅
-- [ ] **Message Persistence** - Database integration for chat history
-- [ ] **Conversation Management** - Save/load conversations
+- [x] **Message Persistence** - SQLite database integration for chat history ✅
+- [x] **Conversation Management** - Automatic conversation tracking and storage ✅
 - [ ] **Multi-Model Chats** - Switch models mid-conversation
 - [ ] **Theme System** - Customizable UI themes
 - [ ] **Authentication** - User management and API key handling
