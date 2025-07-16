@@ -4,6 +4,8 @@ A modular, extensible desktop application built with **Tauri**, **React**, **Typ
 
 ## ✨ Features
 
+- 📦 **Standalone Mac App** - Single-click installation with bundled Python backend (NEW!)
+- 🚀 **Zero-Dependency Deployment** - No Python or package installation required for end users
 - 🧩 **Advanced Plugin Architecture** - Hot-swappable AI providers with zero-restart deployment
 - 🔄 **Streaming Support** - Real-time responses from all providers (OpenAI, Anthropic, Ollama)
 - 🛠️ **Runtime Management** - Plugin discovery, configuration updates, and health monitoring via API
@@ -46,7 +48,48 @@ src/
 └── components/          # React UI components
 ```
 
-## 🚀 Quick Start
+## 📦 Standalone App (Recommended for Users)
+
+**Want to just use EchoV2 without any setup?** Download the standalone Mac app!
+
+### 🎯 One-Click Installation
+
+1. **Download** the latest `EchoV2.app` from [Releases](https://github.com/coltonbatts/EchoV2/releases)
+2. **Drag** to Applications folder
+3. **Double-click** to run - the Python backend starts automatically!
+
+### ✨ What's Included
+
+The standalone app bundles everything you need:
+- ✅ Tauri frontend (React + TypeScript)
+- ✅ Python FastAPI backend (PyInstaller executable)
+- ✅ All dependencies and configurations
+- ✅ Automatic backend process management
+- ✅ No Python installation required
+
+### 🔧 Building Your Own Standalone App
+
+Want to build the standalone app yourself? It's easy:
+
+```bash
+# Install prerequisites (Rust required)
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+source ~/.cargo/env
+
+# Clone and build
+git clone https://github.com/coltonbatts/EchoV2.git
+cd EchoV2
+npm install
+npm run build:standalone
+```
+
+The app will be created at: `src-tauri/target/release/bundle/macos/EchoV2.app`
+
+**📚 Detailed build instructions:** See [BUILD_INSTRUCTIONS.md](BUILD_INSTRUCTIONS.md)
+
+---
+
+## 🚀 Development Setup
 
 ### Prerequisites
 
@@ -281,6 +324,9 @@ cd backend && uvicorn main:app --reload
 # Build for production
 npm run build
 
+# Build standalone Mac app (NEW!)
+npm run build:standalone
+
 # Run tests (when implemented)
 npm test
 cd backend && python -m pytest
@@ -391,11 +437,13 @@ EchoV2 features a production-ready plugin architecture with zero-downtime manage
 - [x] **Streaming Responses** - Real-time message streaming for all providers ✅
 - [x] **Multi-Provider Support** - OpenAI, Anthropic, Ollama integration ✅
 - [x] **Plugin Hot-Loading** - Dynamic plugin management ✅
+- [x] **Standalone Mac App** - PyInstaller + Tauri bundling with auto-backend management ✅
 - [ ] **Message Persistence** - Database integration for chat history
 - [ ] **Conversation Management** - Save/load conversations
 - [ ] **Multi-Model Chats** - Switch models mid-conversation
 - [ ] **Theme System** - Customizable UI themes
 - [ ] **Authentication** - User management and API key handling
+- [ ] **Windows/Linux Standalone** - Cross-platform standalone builds
 
 ## 📄 License
 

@@ -40,8 +40,31 @@ class ApiClient {
     }
   }
 
+  private async fetchWithRetry(url: string, options: RequestInit = {}, maxRetries: number = 3): Promise<Response> {
+    let lastError: Error = new Error('Unknown error')
+    
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        return await this.fetchWithTimeout(url, options)
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error('Unknown error')
+        
+        // If this is the last attempt, throw the error
+        if (attempt === maxRetries) {
+          throw lastError
+        }
+        
+        // Wait before retrying (exponential backoff)
+        const delay = Math.min(1000 * Math.pow(2, attempt), 5000)
+        await new Promise(resolve => setTimeout(resolve, delay))
+      }
+    }
+    
+    throw lastError
+  }
+
   async sendMessage(request: ChatRequest): Promise<ChatResponse> {
-    const response = await this.fetchWithTimeout(`${this.config.baseUrl}/chat`, {
+    const response = await this.fetchWithRetry(`${this.config.baseUrl}/chat`, {
       method: 'POST',
       body: JSON.stringify(request),
     })
@@ -55,7 +78,7 @@ class ApiClient {
   }
 
   async sendConversation(request: ConversationRequest): Promise<ChatResponse> {
-    const response = await this.fetchWithTimeout(`${this.config.baseUrl}/chat/conversation`, {
+    const response = await this.fetchWithRetry(`${this.config.baseUrl}/chat/conversation`, {
       method: 'POST',
       body: JSON.stringify(request),
     })
@@ -69,7 +92,7 @@ class ApiClient {
   }
 
   async getHealth(): Promise<HealthStatus> {
-    const response = await this.fetchWithTimeout(`${this.config.baseUrl}/health`)
+    const response = await this.fetchWithRetry(`${this.config.baseUrl}/health`)
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({ detail: response.statusText }))
@@ -80,7 +103,7 @@ class ApiClient {
   }
 
   async getProviders(): Promise<ProvidersResponse> {
-    const response = await this.fetchWithTimeout(`${this.config.baseUrl}/chat/providers`)
+    const response = await this.fetchWithRetry(`${this.config.baseUrl}/chat/providers`)
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({ detail: response.statusText }))
@@ -91,7 +114,7 @@ class ApiClient {
   }
 
   async getProviderModels(provider: string): Promise<ProviderModelsResponse> {
-    const response = await this.fetchWithTimeout(
+    const response = await this.fetchWithRetry(
       `${this.config.baseUrl}/chat/providers/${provider}/models`
     )
 

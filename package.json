@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build"
+    "tauri:build": "tauri build",
+    "build:standalone": "python3 scripts/build-standalone.py"
   },
   "dependencies": {
     "react": "^18.2.0",
