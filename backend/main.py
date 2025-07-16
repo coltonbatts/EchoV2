@@ -5,6 +5,8 @@ import os
 from contextlib import asynccontextmanager
 
 # Import configuration and routes
+import sys
+sys.path.append('.')
 from config.settings import get_settings
 from api.routes.health import router as health_router
 from api.routes.chat import router as chat_router
@@ -16,12 +18,19 @@ from core.plugins.ollama_provider import OllamaProvider
 from core.plugins.openai_provider import OpenAIProvider
 from core.plugins.anthropic_provider import AnthropicProvider
 
+# Import database
+from core.database import init_database, close_database
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan manager for startup and shutdown."""
     # Startup
     logging.info("Starting EchoV2 Backend...")
+    
+    # Initialize database
+    await init_database()
+    logging.info("Database initialized")
     
     # Register AI providers
     registry.register(OllamaProvider, "ollama")
@@ -39,6 +48,8 @@ async def lifespan(app: FastAPI):
     # Shutdown
     logging.info("Shutting down EchoV2 Backend...")
     await registry.shutdown_all()
+    await close_database()
+    logging.info("Database connection closed")
 
 
 def create_app() -> FastAPI:

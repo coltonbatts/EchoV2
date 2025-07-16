@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException
 from typing import Optional
-from ...services.health_service import health_service
+from services.health_service import health_service
 import logging
 
 logger = logging.getLogger(__name__)

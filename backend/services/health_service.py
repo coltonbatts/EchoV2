@@ -1,5 +1,5 @@
 from typing import Dict, Any
-from ..core.models.manager import model_manager
+from core.models.manager import model_manager
 import logging
 
 logger = logging.getLogger(__name__)

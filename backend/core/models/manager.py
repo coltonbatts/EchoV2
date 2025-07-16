@@ -1,7 +1,7 @@
 from typing import Dict, Optional, List
 from .base import AbstractAIProvider, ChatRequest, ChatResponse, ProviderStatus
 from .registry import registry
-from ...config.settings import get_settings
+from config.settings import get_settings
 import logging
 
 logger = logging.getLogger(__name__)

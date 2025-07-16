@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
-from ...services.chat_service import chat_service
+from services.chat_service import chat_service
 import logging
 
 logger = logging.getLogger(__name__)
@@ -13,6 +13,7 @@ class ChatRequestModel(BaseModel):
     prompt: str
     model: Optional[str] = None
     provider: Optional[str] = None
+    conversation_id: Optional[int] = None
 
 
 class ConversationMessage(BaseModel):
@@ -24,6 +25,7 @@ class ConversationRequestModel(BaseModel):
     messages: List[ConversationMessage]
     model: Optional[str] = None
     provider: Optional[str] = None
+    conversation_id: Optional[int] = None
 
 
 class ChatResponseModel(BaseModel):
@@ -31,23 +33,26 @@ class ChatResponseModel(BaseModel):
     model: str
     provider: Optional[str] = None
     metadata: Optional[Dict[str, Any]] = None
+    conversation_id: Optional[int] = None
 
 
 @router.post("/", response_model=ChatResponseModel)
 async def chat_completion(request: ChatRequestModel):
     """Send a single message to the AI and get a response."""
     try:
-        response = await chat_service.send_message(
+        response, conversation_id = await chat_service.send_message(
             prompt=request.prompt,
             model=request.model,
-            provider=request.provider
+            provider=request.provider,
+            conversation_id=request.conversation_id
         )
         
         return ChatResponseModel(
             response=response.content,
             model=response.model,
             provider=request.provider,
-            metadata=response.metadata
+            metadata=response.metadata,
+            conversation_id=conversation_id
         )
         
     except Exception as e:
@@ -67,17 +72,19 @@ async def conversation_completion(request: ConversationRequestModel):
     try:
         messages = [{"role": msg.role, "content": msg.content} for msg in request.messages]
         
-        response = await chat_service.send_conversation(
+        response, conversation_id = await chat_service.send_conversation(
             messages=messages,
             model=request.model,
-            provider=request.provider
+            provider=request.provider,
+            conversation_id=request.conversation_id
         )
         
         return ChatResponseModel(
             response=response.content,
             model=response.model,
             provider=request.provider,
-            metadata=response.metadata
+            metadata=response.metadata,
+            conversation_id=conversation_id
         )
         
     except Exception as e:
