@@ -2,10 +2,7 @@ import { apiClient } from '../api/client'
 import type { 
   ConversationSummary, 
   ConversationDetail,
-  UpdateTitleRequest,
-  DeleteConversationResponse,
-  UpdateTitleResponse,
-  GenerateTitleResponse
+  UpdateTitleRequest
 } from '../../types/api'
 
 export class ConversationService {

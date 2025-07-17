@@ -1,13 +1,18 @@
-import React, { useState, useCallback } from 'react'
+import React, { useState, useCallback, useEffect } from 'react'
 import ChatWindow from './components/ChatWindow'
 import ConversationSidebar from './components/ConversationSidebar'
+import SetupWizard from './components/SetupWizard'
 import { useChat } from './hooks/useChat'
 import { useConfig } from './hooks/useConfig'
 import { useConversations } from './hooks/useConversations'
 import { conversationService } from './services/conversation/conversationService'
+import { setupService } from './services/setup/setupService'
+import { SetupConfig } from './types/setup'
 
 function App() {
   const [input, setInput] = useState('')
+  const [isSetupComplete, setIsSetupComplete] = useState<boolean>(false)
+  const [isCheckingSetup, setIsCheckingSetup] = useState<boolean>(true)
   
   // Conversation management
   const {
@@ -20,8 +25,6 @@ function App() {
     renameConversation,
     newConversation,
     refreshConversations,
-    updateConversationInList,
-    addNewConversationToList,
     clearError: clearConversationsError
   } = useConversations()
 
@@ -37,6 +40,30 @@ function App() {
     setSelectedProvider,
     setSelectedModel 
   } = useConfig()
+
+  // Check setup completion status on app load
+  useEffect(() => {
+    const checkSetupStatus = async () => {
+      try {
+        const isComplete = setupService.isSetupComplete()
+        setIsSetupComplete(isComplete)
+      } catch (error) {
+        console.error('Failed to check setup status:', error)
+        setIsSetupComplete(false)
+      } finally {
+        setIsCheckingSetup(false)
+      }
+    }
+    
+    checkSetupStatus()
+  }, [])
+
+  // Handle setup completion
+  const handleSetupComplete = useCallback((config: SetupConfig) => {
+    setIsSetupComplete(true)
+    console.log('Setup completed with config:', config)
+    // The setupService already marks setup as complete
+  }, [])
 
   const handleSendMessage = useCallback(async () => {
     if (!input.trim() || chatLoading) return
@@ -85,6 +112,24 @@ function App() {
     return activeConversation.title || 'Untitled Conversation'
   }
 
+  // Show loading state while checking setup
+  if (isCheckingSetup) {
+    return (
+      <div className="app">
+        <div className="loading-state">
+          <div className="loading-spinner">⏳</div>
+          <p>Loading EchoV2...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Show setup wizard if setup is not complete
+  if (!isSetupComplete) {
+    return <SetupWizard onComplete={handleSetupComplete} />
+  }
+
+  // Show main app if setup is complete
   return (
     <div className="app">
       <div className="app-layout">

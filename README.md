@@ -6,7 +6,8 @@ A modular, extensible desktop application built with **Tauri**, **React**, **Typ
 
 - 📦 **Standalone Mac App** - Single-click installation with bundled Python backend
 - 🚀 **Zero-Dependency Deployment** - No Python or package installation required for end users
-- 💬 **Conversation Management** - Full conversation workspace with sidebar, search, and persistence (NEW!)
+- 🎯 **First-Time Setup Wizard** - "Start chatting in 30 seconds" with guided provider configuration (NEW!)
+- 💬 **Conversation Management** - Full conversation workspace with sidebar, search, and persistence
 - 🧩 **Advanced Plugin Architecture** - Hot-swappable AI providers with zero-restart deployment
 - 🔄 **Streaming Support** - Real-time responses from all providers (OpenAI, Anthropic, Ollama)
 - 🛠️ **Runtime Management** - Plugin discovery, configuration updates, and health monitoring via API
@@ -75,6 +76,7 @@ The standalone app bundles everything you need:
 - ✅ Python FastAPI backend (PyInstaller executable)
 - ✅ All dependencies and configurations
 - ✅ Automatic backend process management
+- ✅ First-time setup wizard with guided configuration
 - ✅ No Python installation required
 
 ### 🔧 Building Your Own Standalone App
@@ -381,6 +383,32 @@ curl -X POST "http://localhost:8000/chat" \
 - `GET /health/{provider}` - Provider-specific health check
 - `GET /` - API information
 
+## 🎯 First-Time Setup Wizard
+
+EchoV2 features a **modern setup wizard** that gets you chatting in 30 seconds, designed with the user experience of apps like Slack and Discord.
+
+### ✨ **Key Features**
+- **🚀 "Start chatting in 30 seconds"** - Streamlined onboarding experience
+- **🎯 Smart Provider Selection** - OpenAI, Anthropic, and Google with clear descriptions
+- **🔗 Direct API Key Links** - One-click access to provider signup pages
+- **🔒 Real-time Validation** - Test API keys before saving configuration
+- **⚙️ Advanced Options** - Collapsible section for custom endpoints and local AI
+- **📊 Progress Tracking** - Visual progress bar and step indicators
+- **🎨 Modern UI** - Gradient backgrounds, smooth animations, and responsive design
+
+### 🔄 **Setup Flow**
+1. **Welcome Screen** → Features overview and benefits
+2. **Provider Selection** → Choose from OpenAI, Anthropic, or Google
+3. **API Key Input** → Secure input with direct signup links
+4. **Connection Test** → Real-time validation and error handling
+5. **Completion** → Ready to start chatting!
+
+### 🛠️ **Technical Details**
+- **localStorage Persistence** - Setup state saved across sessions
+- **TypeScript Throughout** - Full type safety and error handling
+- **Responsive Design** - Works perfectly on desktop
+- **Configuration Integration** - Seamlessly integrates with existing config system
+
 ### Example Usage
 
 ```bash
@@ -581,6 +609,7 @@ EchoV2 features a production-ready plugin architecture with zero-downtime manage
 - [x] **Standalone Mac App** - PyInstaller + Tauri bundling with auto-backend management ✅
 - [x] **Message Persistence** - SQLite database integration for chat history ✅
 - [x] **Conversation Management** - Automatic conversation tracking and storage ✅
+- [x] **First-Time Setup Wizard** - Modern onboarding experience with guided configuration ✅
 - [ ] **Multi-Model Chats** - Switch models mid-conversation
 - [ ] **Theme System** - Customizable UI themes
 - [ ] **Authentication** - User management and API key handling
