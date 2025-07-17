@@ -4,8 +4,9 @@ A modular, extensible desktop application built with **Tauri**, **React**, **Typ
 
 ## ✨ Features
 
-- 📦 **Standalone Mac App** - Single-click installation with bundled Python backend (NEW!)
+- 📦 **Standalone Mac App** - Single-click installation with bundled Python backend
 - 🚀 **Zero-Dependency Deployment** - No Python or package installation required for end users
+- 💬 **Conversation Management** - Full conversation workspace with sidebar, search, and persistence (NEW!)
 - 🧩 **Advanced Plugin Architecture** - Hot-swappable AI providers with zero-restart deployment
 - 🔄 **Streaming Support** - Real-time responses from all providers (OpenAI, Anthropic, Ollama)
 - 🛠️ **Runtime Management** - Plugin discovery, configuration updates, and health monitoring via API
@@ -40,6 +41,7 @@ backend/
 │   └── health_service.py # System health monitoring
 ├── api/routes/           # RESTful API endpoints
 │   ├── chat.py          # Chat completion endpoints (now with persistence)
+│   ├── conversations.py # Conversation management API
 │   ├── health.py        # System health monitoring
 │   └── plugins.py       # Plugin management API
 ├── utils/               # Developer tools
@@ -248,11 +250,51 @@ cors:
   allowed_origins: ["http://localhost:1420"]
 ```
 
+## 💬 Conversation Management
+
+EchoV2 features a **comprehensive conversation workspace** that transforms the app from a stateless chat into a persistent conversation platform, allowing users to build complex, multi-turn conversations over time.
+
+### 🎯 **Key Features**
+- **✅ Conversation Sidebar** - Browse and manage all conversations with search functionality
+- **✅ Auto-Title Generation** - Intelligent titles automatically generated from first user message
+- **✅ Conversation Persistence** - Active conversation remembered across app sessions
+- **✅ Inline Editing** - Rename conversations directly in the sidebar
+- **✅ Search & Filter** - Find conversations by title or content preview
+- **✅ New Chat Functionality** - Easy access to start fresh conversations
+- **✅ Cross-Session Continuity** - Pick up conversations exactly where you left off
+
+### 🔄 **User Workflows**
+1. **Start New Conversation** → Auto-generates title → Persists automatically
+2. **Continue Previous Conversation** → Click from sidebar → Loads full history  
+3. **Search Conversations** → Filter by title or content preview
+4. **Organize Conversations** → Rename, delete, or browse by date
+5. **Seamless Multi-Session** → Active conversation remembered between app launches
+
+### 📱 **Interface Layout**
+```
+┌─────────────────────────────────────────────────────┐
+│ EchoV2 - Active Conversation Title  [Provider][Model]│
+├─────────────┬───────────────────────────────────────┤
+│ Sidebar     │ Chat Messages                         │
+│             │                                       │
+│ 🔍 Search   │ ┌─ User: Hello                        │
+│             │ └─ AI: Hi! How can I help?            │
+│ Conversation│                                       │
+│ 1 ⭐        │ ┌─ User: What's the weather?           │
+│ Conversation│ └─ AI: I don't have access to...       │
+│ 2           │                                       │
+│ Conversation│                                       │
+│ 3           │                                       │
+│             │                                       │
+│ [+ New]     │ [Input field.....................] 📤 │
+└─────────────┴───────────────────────────────────────┘
+```
+
 ## 💾 SQLite Persistence
 
-EchoV2 now features **automatic conversation and message storage** with SQLite, providing seamless chat history without requiring any configuration.
+EchoV2 features **automatic conversation and message storage** with SQLite, providing seamless chat history without requiring any configuration.
 
-### 🔧 **Key Features**
+### 🔧 **Database Features**
 - **✅ Automatic Storage** - All messages saved transparently to SQLite database
 - **✅ Cross-Platform** - User data stored in appropriate OS-specific directories
 - **✅ Backward Compatible** - Existing API interface unchanged
@@ -318,6 +360,13 @@ curl -X POST "http://localhost:8000/chat" \
 - `GET /chat/providers` - List available AI providers
 - `GET /chat/providers/{provider}/models` - Get models for a provider
 
+### Conversation Management API
+- `GET /conversations` - List all conversations with metadata and pagination
+- `GET /conversations/{id}` - Get full conversation with all messages
+- `DELETE /conversations/{id}` - Delete a conversation and all its messages
+- `PUT /conversations/{id}/title` - Update conversation title
+- `POST /conversations/{id}/generate-title` - Auto-generate title from first message
+
 ### Plugin Management API
 - `GET /plugins/` - List all registered providers
 - `GET /plugins/{name}/status` - Get provider health and status
@@ -344,6 +393,23 @@ curl -X POST "http://localhost:8000/chat" \
 curl -X POST "http://localhost:8000/chat" \
   -H "Content-Type: application/json" \
   -d '{"prompt": "Tell me more", "provider": "openai", "conversation_id": 123}'
+
+# List all conversations
+curl "http://localhost:8000/conversations"
+
+# Get a specific conversation with all messages
+curl "http://localhost:8000/conversations/123"
+
+# Update conversation title
+curl -X PUT "http://localhost:8000/conversations/123/title" \
+  -H "Content-Type: application/json" \
+  -d '{"title": "My AI Research Session"}'
+
+# Auto-generate conversation title
+curl -X POST "http://localhost:8000/conversations/123/generate-title"
+
+# Delete a conversation
+curl -X DELETE "http://localhost:8000/conversations/123"
 
 # Enable streaming responses
 curl -X POST "http://localhost:8000/chat" \
@@ -473,7 +539,7 @@ Contributions are welcome! Please feel free to:
 
 1. **Add new AI providers** - Implement `AbstractAIProvider` interface
 2. **Improve UI/UX** - Enhance the React frontend
-3. **Add features** - Message history, conversation management, etc.
+3. **Add features** - Multi-model chats, themes, authentication, etc.
 4. **Fix bugs** - Check the issues page
 5. **Improve documentation** - Help others understand the codebase
 
