@@ -11,6 +11,7 @@ from config.settings import get_settings
 from api.routes.health import router as health_router
 from api.routes.chat import router as chat_router
 from api.routes.plugins import router as plugins_router
+from api.routes.conversations import router as conversations_router
 
 # Import and register providers
 from core.models.registry import registry
@@ -83,6 +84,7 @@ def create_app() -> FastAPI:
     app.include_router(health_router)
     app.include_router(chat_router)
     app.include_router(plugins_router)
+    app.include_router(conversations_router)
     
     return app
 

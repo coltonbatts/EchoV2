@@ -4,9 +4,10 @@ import type { Message } from '../types/message'
 interface ChatWindowProps {
   messages: Message[]
   isLoading: boolean
+  conversationId?: number | null
 }
 
-const ChatWindow: React.FC<ChatWindowProps> = ({ messages, isLoading }) => {
+const ChatWindow: React.FC<ChatWindowProps> = ({ messages, isLoading, conversationId }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const scrollToBottom = () => {
@@ -21,7 +22,11 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ messages, isLoading }) => {
     <div className="chat-window">
       {messages.length === 0 && (
         <div className="empty-state">
-          <p>Welcome to EchoV2! Start a conversation with your local AI.</p>
+          {conversationId ? (
+            <p>Continue this conversation...</p>
+          ) : (
+            <p>Welcome to EchoV2! Start a conversation with your local AI.</p>
+          )}
         </div>
       )}
       

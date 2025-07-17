@@ -3,21 +3,32 @@ import type { Message } from '../../types/message'
 import type { ChatRequest, ChatResponse } from '../../types/api'
 
 export class ChatService {
-  async sendMessage(prompt: string, model?: string, provider?: string): Promise<Message> {
+  async sendMessage(
+    prompt: string, 
+    model?: string, 
+    provider?: string,
+    conversationId?: number
+  ): Promise<{ message: Message, conversationId?: number }> {
     try {
       const request: ChatRequest = {
         prompt,
         model,
-        provider
+        provider,
+        conversation_id: conversationId
       }
 
       const response: ChatResponse = await apiClient.sendMessage(request)
 
-      return {
+      const message: Message = {
         id: (Date.now() + 1).toString(),
         text: response.response,
         sender: 'assistant',
         timestamp: new Date()
+      }
+
+      return {
+        message,
+        conversationId: response.conversation_id
       }
     } catch (error) {
       throw new Error(

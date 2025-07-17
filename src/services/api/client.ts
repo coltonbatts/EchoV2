@@ -5,7 +5,13 @@ import type {
   HealthStatus,
   ProvidersResponse,
   ProviderModelsResponse,
-  ApiConfig 
+  ApiConfig,
+  ConversationSummary,
+  ConversationDetail,
+  UpdateTitleRequest,
+  DeleteConversationResponse,
+  UpdateTitleResponse,
+  GenerateTitleResponse
 } from '../../types/api'
 
 class ApiClient {
@@ -116,6 +122,82 @@ class ApiClient {
   async getProviderModels(provider: string): Promise<ProviderModelsResponse> {
     const response = await this.fetchWithRetry(
       `${this.config.baseUrl}/chat/providers/${provider}/models`
+    )
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ detail: response.statusText }))
+      throw new Error(errorData.detail || `HTTP ${response.status}`)
+    }
+
+    return response.json()
+  }
+
+  // Conversation Management Methods
+
+  async getConversations(limit: number = 50, offset: number = 0): Promise<ConversationSummary[]> {
+    const response = await this.fetchWithRetry(
+      `${this.config.baseUrl}/conversations?limit=${limit}&offset=${offset}`
+    )
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ detail: response.statusText }))
+      throw new Error(errorData.detail || `HTTP ${response.status}`)
+    }
+
+    return response.json()
+  }
+
+  async getConversation(conversationId: number): Promise<ConversationDetail> {
+    const response = await this.fetchWithRetry(
+      `${this.config.baseUrl}/conversations/${conversationId}`
+    )
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ detail: response.statusText }))
+      throw new Error(errorData.detail || `HTTP ${response.status}`)
+    }
+
+    return response.json()
+  }
+
+  async deleteConversation(conversationId: number): Promise<DeleteConversationResponse> {
+    const response = await this.fetchWithRetry(
+      `${this.config.baseUrl}/conversations/${conversationId}`,
+      { method: 'DELETE' }
+    )
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ detail: response.statusText }))
+      throw new Error(errorData.detail || `HTTP ${response.status}`)
+    }
+
+    return response.json()
+  }
+
+  async updateConversationTitle(
+    conversationId: number, 
+    request: UpdateTitleRequest
+  ): Promise<UpdateTitleResponse> {
+    const response = await this.fetchWithRetry(
+      `${this.config.baseUrl}/conversations/${conversationId}/title`,
+      {
+        method: 'PUT',
+        body: JSON.stringify(request)
+      }
+    )
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ detail: response.statusText }))
+      throw new Error(errorData.detail || `HTTP ${response.status}`)
+    }
+
+    return response.json()
+  }
+
+  async generateConversationTitle(conversationId: number): Promise<GenerateTitleResponse> {
+    const response = await this.fetchWithRetry(
+      `${this.config.baseUrl}/conversations/${conversationId}/generate-title`,
+      { method: 'POST' }
     )
 
     if (!response.ok) {

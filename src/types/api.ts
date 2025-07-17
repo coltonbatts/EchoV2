@@ -2,12 +2,14 @@ export interface ChatRequest {
   prompt: string
   model?: string
   provider?: string
+  conversation_id?: number
 }
 
 export interface ConversationRequest {
   messages: ConversationMessage[]
   model?: string
   provider?: string
+  conversation_id?: number
 }
 
 export interface ChatResponse {
@@ -15,6 +17,7 @@ export interface ChatResponse {
   model: string
   provider?: string
   metadata?: Record<string, any>
+  conversation_id?: number
 }
 
 export interface ConversationMessage {
@@ -52,4 +55,49 @@ export interface ProviderModelsResponse {
 export interface ApiConfig {
   baseUrl: string
   timeout: number
+}
+
+// Conversation Management Types
+export interface ConversationSummary {
+  id: number
+  title?: string
+  created_at: string
+  updated_at: string
+  message_count: number
+  last_message_preview?: string
+}
+
+export interface MessageDetail {
+  id: number
+  role: string
+  content: string
+  timestamp: string
+  provider?: string
+  model?: string
+  message_metadata?: Record<string, any>
+}
+
+export interface ConversationDetail {
+  id: number
+  title?: string
+  created_at: string
+  updated_at: string
+  messages: MessageDetail[]
+}
+
+export interface UpdateTitleRequest {
+  title: string
+}
+
+export interface DeleteConversationResponse {
+  message: string
+}
+
+export interface UpdateTitleResponse {
+  message: string
+}
+
+export interface GenerateTitleResponse {
+  title: string
+  message: string
 }
