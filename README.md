@@ -9,7 +9,7 @@ A modular, extensible desktop application built with **Tauri**, **React**, **Typ
 - 🎯 **First-Time Setup Wizard** - "Start chatting in 30 seconds" with guided provider configuration
 - 💬 **Conversation Management** - Full conversation workspace with sidebar, search, and persistence
 - 🧩 **Advanced Plugin Architecture** - Hot-swappable AI providers with zero-restart deployment
-- 🔄 **Real-time Streaming** - Character-by-character AI responses with automatic fallback
+- 🔄 **Real-time Streaming** - All AI responses stream character-by-character for optimal UX
 - 🛠️ **Runtime Management** - Plugin discovery, configuration updates, and health monitoring via API
 - 🎯 **Type Safety** - Full TypeScript integration across frontend with comprehensive validation
 - ⚙️ **Configuration Management** - Environment-based YAML with runtime updates and validation
@@ -20,8 +20,8 @@ A modular, extensible desktop application built with **Tauri**, **React**, **Typ
 - 📡 **Developer Tools** - Plugin template generator and comprehensive API documentation
 
 ### 🆕 **Latest Features**
-- 🔄 **Real-time Streaming** - Character-by-character AI responses with fallback to non-streaming
-- 🎯 **Streaming UI** - Visual typing indicators, progress animations, and real-time updates
+- 🔄 **Streaming-First Architecture** - All responses now stream by default for optimal user experience
+- 🎯 **Simplified UI** - Removed complexity with unified streaming interface
 - 🔐 **Enhanced Error Handling** - Custom error types with retry logic and user-friendly messages
 - 🛡️ **XSS Protection** - Complete HTML sanitization pipeline with input validation
 - 🚫 **Memory Leak Prevention** - Comprehensive cleanup for timeouts, API requests, and effects
@@ -80,33 +80,31 @@ src/
 
 ## 🔄 Real-time Streaming
 
-EchoV2 features **production-ready streaming** that delivers AI responses character by character for an engaging, real-time chat experience.
+EchoV2 features **streaming-first architecture** that delivers all AI responses character by character for an engaging, real-time chat experience.
 
 ### ✨ **Key Features**
 
-- **🎯 Real-time Response Building** - AI responses appear immediately and build character by character
-- **🔄 Automatic Fallback** - Seamlessly falls back to non-streaming if streaming fails
+- **🎯 Real-time Response Building** - All AI responses appear immediately and build character by character
 - **🎨 Visual Indicators** - Animated typing cursor and streaming progress indicators
 - **🚫 Memory Safe** - Proper cleanup of streams, timeouts, and AbortControllers
 - **⚡ Performance Optimized** - Efficient chunk processing with minimal re-renders
 - **🛡️ Error Resilient** - Comprehensive error handling with graceful recovery
+- **🎯 Simplified UX** - Single, consistent interface without toggle complexity
 
 ### 🛠️ **Technical Implementation**
 
 **Backend (Python FastAPI)**
 ```python
-# Server-Sent Events streaming endpoint
+# Server-Sent Events streaming endpoint (always streams)
 @router.post("/chat")
 async def chat_completion(request: ChatRequestModel):
-    if request.stream:
-        generator = chat_service.send_message_stream(...)
-        return StreamingResponse(create_sse_stream(generator), ...)
-    # Falls back to regular response
+    generator = chat_service.send_message_stream(...)
+    return StreamingResponse(create_sse_stream(generator), ...)
 ```
 
 **Frontend (React + TypeScript)**
 ```typescript
-// Enhanced useChat hook with streaming support
+// Simplified useChat hook (streaming-only)
 const { 
   messages, 
   isStreaming, 
@@ -114,7 +112,7 @@ const {
   sendStreamingMessage 
 } = useChat()
 
-// Stream responses in real-time
+// All responses stream in real-time
 await sendStreamingMessage("Tell me a story", "gpt-4", "openai")
 ```
 
@@ -130,12 +128,12 @@ await sendStreamingMessage("Tell me a story", "gpt-4", "openai")
 
 ### 📋 **Usage Examples**
 
-**Enable Streaming**
+**Streaming Request (Default)**
 ```bash
-# Streaming request
+# All requests now stream by default
 curl -X POST "http://localhost:8000/chat" \
   -H "Content-Type: application/json" \
-  -d '{"prompt": "Tell me a story", "provider": "openai", "stream": true}'
+  -d '{"prompt": "Tell me a story", "provider": "openai"}'
 
 # Response format (Server-Sent Events)
 data: {"chunk": "Once", "type": "content"}
@@ -146,17 +144,12 @@ data: {"type": "done"}
 
 **Frontend Integration**
 ```typescript
-// Component with streaming toggle
+// Simplified component (always streams)
 const MyChat = () => {
-  const [useStreaming, setUseStreaming] = useState(true)
-  const { sendMessage, sendStreamingMessage } = useChat()
+  const { sendStreamingMessage } = useChat()
   
   const handleSend = async (prompt: string) => {
-    if (useStreaming) {
-      await sendStreamingMessage(prompt) // Real-time streaming
-    } else {
-      await sendMessage(prompt)         // Regular response
-    }
+    await sendStreamingMessage(prompt) // Always streams
   }
 }
 ```
@@ -166,11 +159,10 @@ const MyChat = () => {
 ```typescript
 // Streaming configuration options
 const streamingConfig = {
-  enableStreaming: true,        // Enable by default
   streamingTimeout: 60000,      // 60s total timeout
   chunkTimeout: 10000,          // 10s between chunks
-  fallbackOnError: true,        // Auto-fallback to non-streaming
-  showTypingIndicator: true     // Visual streaming indicator
+  showTypingIndicator: true,    // Visual streaming indicator
+  autoErrorRecovery: true       // Graceful error handling
 }
 ```
 
@@ -621,20 +613,16 @@ curl -X POST "http://localhost:8000/chat" \
 ## 📡 API Endpoints
 
 ### Chat Endpoints
-- `POST /chat` - Send a message with streaming/non-streaming support and persistence
+- `POST /chat` - Send a message with streaming responses and persistence
 - `POST /chat/conversation` - Send multi-turn conversation (now with persistence)
 - `GET /chat/providers` - List available AI providers
 - `GET /chat/providers/{provider}/models` - Get models for a provider
 
-#### Streaming Support
+#### Streaming (Default)
 ```bash
-# Regular request
+# All requests stream by default (Server-Sent Events)
 curl -X POST "http://localhost:8000/chat" \
-  -d '{"prompt": "Hello", "stream": false}'
-
-# Streaming request (Server-Sent Events)
-curl -X POST "http://localhost:8000/chat" \
-  -d '{"prompt": "Hello", "stream": true}'
+  -d '{"prompt": "Hello", "provider": "openai"}'
 ```
 
 ### Conversation Management API
@@ -714,10 +702,10 @@ curl -X POST "http://localhost:8000/conversations/123/generate-title"
 # Delete a conversation
 curl -X DELETE "http://localhost:8000/conversations/123"
 
-# Enable streaming responses
+# All responses stream by default
 curl -X POST "http://localhost:8000/chat" \
   -H "Content-Type: application/json" \
-  -d '{"prompt": "Tell me a story", "provider": "anthropic", "stream": true}'
+  -d '{"prompt": "Tell me a story", "provider": "anthropic"}'
 
 # Hot-reload a provider with new configuration
 curl -X POST "http://localhost:8000/plugins/openai/reload" \
@@ -882,8 +870,8 @@ EchoV2 features a production-ready plugin architecture with zero-downtime manage
 
 ### ✅ **Completed Features**
 - [x] **Advanced Plugin Architecture** - Hot-swappable providers with runtime management ✅
-- [x] **🆕 Real-time Streaming** - Character-by-character AI responses with automatic fallback ✅
-- [x] **🆕 Streaming UI** - Visual typing indicators, progress animations, and real-time updates ✅
+- [x] **🆕 Streaming-First Architecture** - All responses stream by default for optimal UX ✅
+- [x] **🆕 Simplified Streaming UI** - Unified interface without toggle complexity ✅
 - [x] **Multi-Provider Support** - OpenAI, Anthropic, Ollama integration ✅
 - [x] **Plugin Hot-Loading** - Dynamic plugin management ✅
 - [x] **Standalone Mac App** - PyInstaller + Tauri bundling with auto-backend management ✅
