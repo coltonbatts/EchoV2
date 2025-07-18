@@ -7,6 +7,7 @@ import {
   SETUP_STORAGE_KEY,
   SETUP_VERSION
 } from '../../types/setup'
+import { secureStorageService } from '../secure-storage/secureStorageService'
 
 export class SetupService {
   private static instance: SetupService
@@ -166,16 +167,22 @@ export class SetupService {
     }
   }
 
-  // Save configuration (this would integrate with your existing config system)
+  // Save configuration using secure storage for API keys
   async saveConfiguration(config: SetupConfig): Promise<boolean> {
     try {
-      // In a real implementation, this would call your backend API
-      // to update the YAML configuration files
+      // Store API key securely
+      await secureStorageService.storeApiKeyUniversal(
+        config.provider,
+        config.apiKey,
+        config.customEndpoint
+      )
+
+      // Prepare configuration data without API key for backend
       const configData = {
         ai_providers: {
           default: config.provider,
           [config.provider]: {
-            api_key: config.apiKey,
+            // API key is now stored securely, not in config
             ...(config.customEndpoint && { base_url: config.customEndpoint }),
             ...(config.selectedModel && { default_model: config.selectedModel }),
             timeout: 60,
@@ -184,9 +191,8 @@ export class SetupService {
         }
       }
 
-      // For now, we'll simulate saving to backend
-      // In real implementation, you'd call your backend API
-      console.log('Saving configuration:', configData)
+      // TODO: Call backend API to update YAML configuration
+      console.log('Saving configuration (API key stored securely):', configData)
       
       // Simulate API call delay
       await new Promise(resolve => setTimeout(resolve, 500))
@@ -326,6 +332,72 @@ export class SetupService {
   // Reset setup (for debugging or user request)
   resetSetup(): void {
     this.clearSetupState()
+  }
+
+  // Check for existing localStorage API keys and offer migration
+  async checkForMigration(): Promise<{ provider: string; hasData: boolean }[]> {
+    return await secureStorageService.checkForMigration()
+  }
+
+  // Migrate existing localStorage API keys to secure storage
+  async migrateToSecureStorage(): Promise<{ success: string[]; failed: string[] }> {
+    return await secureStorageService.migrateAllFromLocalStorage()
+  }
+
+  // Initialize secure storage and handle any necessary migrations
+  async initializeSecureStorage(): Promise<void> {
+    try {
+      if (!secureStorageService.isSecureStorageAvailable()) {
+        console.warn('Secure storage not available, using localStorage fallback')
+        return
+      }
+
+      // Check for data that needs migration
+      const migrationNeeded = await this.checkForMigration()
+      
+      if (migrationNeeded.length > 0) {
+        console.log(`Found ${migrationNeeded.length} API keys to migrate from localStorage`)
+        
+        // Auto-migrate existing keys
+        const { success, failed } = await this.migrateToSecureStorage()
+        
+        if (success.length > 0) {
+          console.log(`Successfully migrated API keys for: ${success.join(', ')}`)
+        }
+        
+        if (failed.length > 0) {
+          console.error(`Failed to migrate API keys for: ${failed.join(', ')}`)
+        }
+      }
+    } catch (error) {
+      console.error('Failed to initialize secure storage:', error)
+    }
+  }
+
+  // Get stored providers from secure storage
+  async getStoredProviders(): Promise<string[]> {
+    try {
+      return await secureStorageService.listStoredProviders()
+    } catch (error) {
+      console.error('Failed to get stored providers:', error)
+      return []
+    }
+  }
+
+  // Retrieve API key data from secure storage
+  async getApiKeyData(provider: string): Promise<{ apiKey: string; customEndpoint?: string } | null> {
+    try {
+      const data = await secureStorageService.getApiKeyUniversal(provider)
+      if (!data) return null
+      
+      return {
+        apiKey: data.api_key,
+        customEndpoint: data.custom_endpoint
+      }
+    } catch (error) {
+      console.error(`Failed to get API key for ${provider}:`, error)
+      return null
+    }
   }
 }
 

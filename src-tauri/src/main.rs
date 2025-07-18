@@ -3,8 +3,128 @@
 use std::process::{Child, Command, Stdio};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
-use tauri::{Manager, State};
+use std::collections::HashMap;
+use tauri::{Manager, State, command};
 use tokio::time::sleep;
+use keyring::Entry;
+use serde::{Deserialize, Serialize};
+
+const SERVICE_NAME: &str = "com.echov2.app";
+const API_KEY_PREFIX: &str = "api_key";
+
+#[derive(Debug, Serialize, Deserialize)]
+struct SecureStorageError {
+    message: String,
+}
+
+impl std::fmt::Display for SecureStorageError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}", self.message)
+    }
+}
+
+impl std::error::Error for SecureStorageError {}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct ApiKeyData {
+    provider: String,
+    api_key: String,
+    custom_endpoint: Option<String>,
+}
+
+// Secure storage commands
+#[command]
+async fn store_api_key(
+    provider: String,
+    api_key: String,
+    custom_endpoint: Option<String>,
+) -> Result<(), String> {
+    let key_name = format!("{}_{}", API_KEY_PREFIX, provider);
+    
+    match Entry::new(SERVICE_NAME, &key_name) {
+        Ok(entry) => {
+            let data = ApiKeyData {
+                provider: provider.clone(),
+                api_key,
+                custom_endpoint,
+            };
+            
+            let serialized = serde_json::to_string(&data)
+                .map_err(|e| format!("Failed to serialize API key data: {}", e))?;
+            
+            entry.set_password(&serialized)
+                .map_err(|e| format!("Failed to store API key for {}: {}", provider, e))?;
+            
+            println!("API key stored securely for provider: {}", provider);
+            Ok(())
+        }
+        Err(e) => Err(format!("Failed to create keyring entry for {}: {}", provider, e)),
+    }
+}
+
+#[command]
+async fn get_api_key(provider: String) -> Result<Option<ApiKeyData>, String> {
+    let key_name = format!("{}_{}", API_KEY_PREFIX, provider);
+    
+    match Entry::new(SERVICE_NAME, &key_name) {
+        Ok(entry) => {
+            match entry.get_password() {
+                Ok(password) => {
+                    let data: ApiKeyData = serde_json::from_str(&password)
+                        .map_err(|e| format!("Failed to deserialize API key data: {}", e))?;
+                    Ok(Some(data))
+                }
+                Err(keyring::Error::NoEntry) => Ok(None),
+                Err(e) => Err(format!("Failed to retrieve API key for {}: {}", provider, e)),
+            }
+        }
+        Err(e) => Err(format!("Failed to create keyring entry for {}: {}", provider, e)),
+    }
+}
+
+#[command]
+async fn delete_api_key(provider: String) -> Result<(), String> {
+    let key_name = format!("{}_{}", API_KEY_PREFIX, provider);
+    
+    match Entry::new(SERVICE_NAME, &key_name) {
+        Ok(entry) => {
+            match entry.delete_password() {
+                Ok(()) => {
+                    println!("API key deleted for provider: {}", provider);
+                    Ok(())
+                }
+                Err(keyring::Error::NoEntry) => Ok(()), // Already deleted
+                Err(e) => Err(format!("Failed to delete API key for {}: {}", provider, e)),
+            }
+        }
+        Err(e) => Err(format!("Failed to create keyring entry for {}: {}", provider, e)),
+    }
+}
+
+#[command]
+async fn list_stored_providers() -> Result<Vec<String>, String> {
+    // Note: Keyring doesn't provide enumeration, so we'll check common providers
+    let common_providers = vec!["openai", "anthropic", "google", "ollama"];
+    let mut stored_providers = Vec::new();
+    
+    for provider in common_providers {
+        if let Ok(Some(_)) = get_api_key(provider.to_string()).await {
+            stored_providers.push(provider.to_string());
+        }
+    }
+    
+    Ok(stored_providers)
+}
+
+#[command]
+async fn migrate_from_localstorage(
+    provider: String,
+    api_key: String,
+    custom_endpoint: Option<String>,
+) -> Result<(), String> {
+    // Store in secure storage and return success
+    store_api_key(provider, api_key, custom_endpoint).await
+}
 
 // Backend process state
 #[derive(Default)]
@@ -126,6 +246,13 @@ async fn main() {
     
     tauri::Builder::default()
         .manage(backend_state_for_app)
+        .invoke_handler(tauri::generate_handler![
+            store_api_key,
+            get_api_key,
+            delete_api_key,
+            list_stored_providers,
+            migrate_from_localstorage
+        ])
         .setup(|_app| {
             println!("EchoV2 frontend started successfully!");
             Ok(())

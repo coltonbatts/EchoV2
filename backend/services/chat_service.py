@@ -1,10 +1,12 @@
 from typing import Optional, Dict, Any
+import re
+import html
 from core.models.base import ChatRequest, ChatResponse, ChatMessage
 from core.models.manager import model_manager
 from .conversation_service import ConversationService
-import logging
+from utils.logging import get_chat_logger
 
-logger = logging.getLogger(__name__)
+logger = get_chat_logger(__name__)
 
 
 class ChatService:
@@ -12,6 +14,83 @@ class ChatService:
     
     def __init__(self):
         self.model_manager = model_manager
+        
+    def _sanitize_prompt(self, prompt: str) -> str:
+        """
+        Sanitize user input to prevent prompt injection and other security issues.
+        
+        This is a basic implementation. In production, you might want more sophisticated
+        filtering based on your specific use case and threat model.
+        """
+        if not prompt:
+            return prompt
+            
+        # Remove excessive whitespace
+        sanitized = re.sub(r'\s+', ' ', prompt.strip())
+        
+        # HTML escape to prevent XSS-like attacks if content is ever rendered as HTML
+        sanitized = html.escape(sanitized)
+        
+        # Remove or replace potential prompt injection patterns
+        # These are basic patterns - you might want to expand based on your specific concerns
+        
+        # Remove multiple newlines that could be used to break out of context
+        sanitized = re.sub(r'\n{3,}', '\n\n', sanitized)
+        
+        # Remove potential system prompt injection attempts
+        injection_patterns = [
+            r'(?i)ignore\s+(?:all\s+)?(?:previous\s+)?(?:instructions|prompts?|commands?)',
+            r'(?i)forget\s+(?:everything|all\s+previous|your\s+instructions)',
+            r'(?i)(?:you\s+are\s+now|from\s+now\s+on|instead)\s+(?:a|an)',
+            r'(?i)(?:system|assistant|ai):\s*',
+            r'(?i)(?:user|human):\s*$',
+            r'(?i)(?:act\s+as|pretend\s+to\s+be|roleplay\s+as)\s+(?:a|an)',
+            r'(?i)disregard\s+(?:all\s+)?(?:previous\s+)?(?:instructions|rules)',
+        ]
+        
+        for pattern in injection_patterns:
+            sanitized = re.sub(pattern, '[filtered]', sanitized)
+        
+        # Limit length to prevent resource exhaustion
+        max_length = 10000  # Adjust based on your needs
+        if len(sanitized) > max_length:
+            sanitized = sanitized[:max_length] + "... [truncated]"
+            logger.warning_sanitization(
+                "Prompt truncated due to length",
+                original_length=len(prompt),
+                sanitized_length=len(sanitized)
+            )
+        
+        # Log potential injection attempts
+        if sanitized != prompt.strip():
+            patterns_detected = []
+            for pattern in injection_patterns:
+                if re.search(pattern, prompt):
+                    patterns_detected.append(pattern)
+            
+            logger.warning_sanitization(
+                "Prompt sanitization applied",
+                original_length=len(prompt),
+                sanitized_length=len(sanitized),
+                patterns_detected=patterns_detected
+            )
+        
+        return sanitized
+        
+    def _validate_prompt(self, prompt: str) -> bool:
+        """
+        Validate that the prompt meets basic requirements.
+        """
+        if not prompt or not prompt.strip():
+            return False
+            
+        # Check for extremely long prompts that could cause issues
+        if len(prompt) > 50000:  # Very large limit for validation
+            logger.warning(f"Prompt too long: {len(prompt)} characters")
+            return False
+            
+        # Additional validation logic can be added here
+        return True
     
     async def send_message(
         self,
@@ -22,23 +101,38 @@ class ChatService:
     ) -> tuple[ChatResponse, int]:
         """Send a message and get AI response with database persistence."""
         try:
+            # Validate and sanitize the prompt
+            if not self._validate_prompt(prompt):
+                raise ValueError("Invalid prompt provided")
+                
+            sanitized_prompt = self._sanitize_prompt(prompt)
+            
             # Get or create conversation
             conversation = await ConversationService.get_or_create_conversation(conversation_id)
             
-            # Save user message to database
+            # Save user message to database (use sanitized prompt)
             await ConversationService.add_message(
                 conversation_id=conversation.id,
                 role="user",
-                content=prompt,
+                content=sanitized_prompt,
                 provider=provider,
                 model=model
             )
             
             # Create chat request
-            user_message = ChatMessage(role="user", content=prompt)
+            user_message = ChatMessage(role="user", content=sanitized_prompt)
             request = ChatRequest(
                 messages=[user_message],
                 model=model
+            )
+            
+            # Log the request
+            logger.info_chat_request(
+                "Processing chat request",
+                provider=provider,
+                model=model,
+                conversation_id=conversation.id,
+                prompt_length=len(sanitized_prompt)
             )
             
             # Get response from model manager
@@ -49,7 +143,7 @@ class ChatService:
                 conversation_id=conversation.id,
                 role="assistant",
                 content=response.content,
-                provider=provider or response.provider,
+                provider=provider or getattr(response, 'provider', None),
                 model=response.model,
                 message_metadata={
                     "usage": response.usage,
@@ -63,11 +157,26 @@ class ChatService:
                 if title:
                     await ConversationService.update_conversation_title(conversation.id, title)
             
-            logger.info(f"Chat completion successful - Model: {response.model}, Provider: {provider or 'default'}, Conversation: {conversation.id}")
+            # Log successful response
+            logger.info_chat_response(
+                "Chat completion successful",
+                provider=provider or getattr(response, 'provider', 'unknown'),
+                model=response.model,
+                conversation_id=conversation.id,
+                response_length=len(response.content),
+                usage=response.usage
+            )
+            
             return response, conversation.id
             
         except Exception as e:
-            logger.error(f"Chat completion failed: {e}")
+            logger.error_provider_failure(
+                "Chat completion failed",
+                provider=provider,
+                model=model,
+                error_type=type(e).__name__,
+                extra={'error_message': str(e), 'conversation_id': conversation_id}
+            )
             raise
     
     async def send_conversation(

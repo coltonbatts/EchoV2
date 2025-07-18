@@ -3,6 +3,7 @@ from .base import AbstractAIProvider, ChatRequest, ChatResponse, ProviderStatus
 from .registry import registry
 from config.settings import get_settings
 import logging
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
 logger = logging.getLogger(__name__)
 
@@ -34,12 +35,28 @@ class ModelManager:
         
         self._initialized = True
     
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=4, max=10),
+        retry=retry_if_exception_type((ConnectionError, TimeoutError, OSError)),
+        reraise=True
+    )
+    async def _chat_completion_with_retry(
+        self,
+        provider: AbstractAIProvider,
+        request: ChatRequest,
+        provider_name: str
+    ) -> ChatResponse:
+        """Execute chat completion with retry logic for transient failures."""
+        logger.info(f"Attempting chat completion with {provider_name} (model: {request.model})")
+        return await provider.chat_completion(request)
+    
     async def chat_completion(
         self, 
         request: ChatRequest, 
         provider_name: Optional[str] = None
     ) -> ChatResponse:
-        """Route chat completion request to appropriate provider."""
+        """Route chat completion request to appropriate provider with retry logic."""
         await self.initialize_providers()
         
         provider_name = provider_name or self.default_provider
@@ -52,8 +69,22 @@ class ModelManager:
         if not request.model:
             request.model = provider.get_default_model()
         
-        logger.info(f"Routing chat request to {provider_name} with model {request.model}")
-        return await provider.chat_completion(request)
+        try:
+            return await self._chat_completion_with_retry(provider, request, provider_name)
+        except Exception as e:
+            logger.error(f"Chat completion failed after retries for {provider_name}: {e}")
+            
+            # Provide more specific error messages
+            if "authentication" in str(e).lower() or "api key" in str(e).lower():
+                raise ValueError(f"Authentication failed for {provider_name}. Please check your API key.")
+            elif "rate limit" in str(e).lower() or "quota" in str(e).lower():
+                raise ValueError(f"Rate limit exceeded for {provider_name}. Please try again later.")
+            elif "connection" in str(e).lower() or "timeout" in str(e).lower():
+                raise ConnectionError(f"Connection failed to {provider_name}. Please check your internet connection.")
+            elif "model" in str(e).lower() and "not found" in str(e).lower():
+                raise ValueError(f"Model '{request.model}' not available for {provider_name}.")
+            else:
+                raise ValueError(f"Request failed for {provider_name}: {str(e)}")
     
     async def health_check(self, provider_name: Optional[str] = None) -> Dict[str, ProviderStatus]:
         """Check health of specified provider or all providers."""
