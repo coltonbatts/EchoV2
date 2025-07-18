@@ -3,7 +3,6 @@ export interface ChatRequest {
   model?: string
   provider?: string
   conversation_id?: number
-  stream?: boolean
 }
 
 export interface ConversationRequest {
@@ -11,7 +10,6 @@ export interface ConversationRequest {
   model?: string
   provider?: string
   conversation_id?: number
-  stream?: boolean
 }
 
 export interface ChatResponse {

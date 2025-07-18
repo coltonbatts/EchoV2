@@ -10,7 +10,6 @@ const StreamingChatExample: React.FC = () => {
   const [input, setInput] = useState('')
   const [selectedModel, setSelectedModel] = useState<string>()
   const [selectedProvider, setSelectedProvider] = useState<string>()
-  const [useStreaming, setUseStreaming] = useState(true)
   
   const {
     messages,
@@ -18,7 +17,6 @@ const StreamingChatExample: React.FC = () => {
     isStreaming,
     streamingMessage,
     error,
-    sendMessage,
     sendStreamingMessage,
     clearMessages,
     clearError
@@ -29,13 +27,8 @@ const StreamingChatExample: React.FC = () => {
     if (!input.trim() || isLoading || isStreaming) return
 
     try {
-      if (useStreaming) {
-        // Use streaming for real-time responses
-        await sendStreamingMessage(input.trim(), selectedModel, selectedProvider)
-      } else {
-        // Use regular non-streaming request
-        await sendMessage(input.trim(), selectedModel, selectedProvider)
-      }
+      // Use streaming for real-time responses
+      await sendStreamingMessage(input.trim(), selectedModel, selectedProvider)
       setInput('')
     } catch (error) {
       console.error('Failed to send message:', error)
@@ -54,16 +47,6 @@ const StreamingChatExample: React.FC = () => {
       <div className="chat-header">
         <h2>EchoV2 Streaming Chat</h2>
         <div className="chat-controls">
-          <label className="streaming-toggle">
-            <input
-              type="checkbox"
-              checked={useStreaming}
-              onChange={(e) => setUseStreaming(e.target.checked)}
-              disabled={isLoading || isStreaming}
-            />
-            <span>Enable Streaming</span>
-          </label>
-          
           <div className="model-selectors">
             <select
               value={selectedProvider || ''}

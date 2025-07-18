@@ -17,7 +17,6 @@ class ChatRequestModel(BaseModel):
     model: Optional[str] = None
     provider: Optional[str] = None
     conversation_id: Optional[int] = None
-    stream: Optional[bool] = False
 
 
 class ConversationMessage(BaseModel):
@@ -30,7 +29,6 @@ class ConversationRequestModel(BaseModel):
     model: Optional[str] = None
     provider: Optional[str] = None
     conversation_id: Optional[int] = None
-    stream: Optional[bool] = False
 
 
 class ChatResponseModel(BaseModel):
@@ -58,43 +56,26 @@ async def create_sse_stream(generator: AsyncGenerator[str, None]) -> AsyncGenera
 
 @router.post("/")
 async def chat_completion(request: ChatRequestModel):
-    """Send a single message to the AI and get a response (streaming or non-streaming)."""
+    """Send a single message to the AI and get a streaming response."""
     try:
-        if request.stream:
-            # Return streaming response
-            generator = chat_service.send_message_stream(
-                prompt=request.prompt,
-                model=request.model,
-                provider=request.provider,
-                conversation_id=request.conversation_id
-            )
-            
-            return StreamingResponse(
-                create_sse_stream(generator),
-                media_type="text/plain",
-                headers={
-                    "Cache-Control": "no-cache",
-                    "Connection": "keep-alive",
-                    "Content-Type": "text/plain; charset=utf-8",
-                    "X-Accel-Buffering": "no"  # Disable nginx buffering
-                }
-            )
-        else:
-            # Return complete response
-            response, conversation_id = await chat_service.send_message(
-                prompt=request.prompt,
-                model=request.model,
-                provider=request.provider,
-                conversation_id=request.conversation_id
-            )
-            
-            return ChatResponseModel(
-                response=response.content,
-                model=response.model,
-                provider=request.provider,
-                metadata=response.metadata,
-                conversation_id=conversation_id
-            )
+        # Always return streaming response
+        generator = chat_service.send_message_stream(
+            prompt=request.prompt,
+            model=request.model,
+            provider=request.provider,
+            conversation_id=request.conversation_id
+        )
+        
+        return StreamingResponse(
+            create_sse_stream(generator),
+            media_type="text/plain",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "Content-Type": "text/plain; charset=utf-8",
+                "X-Accel-Buffering": "no"  # Disable nginx buffering
+            }
+        )
         
     except Exception as e:
         logger.error(f"Chat completion failed: {e}")

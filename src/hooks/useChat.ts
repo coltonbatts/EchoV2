@@ -1,8 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
-import { chatService } from '../services/chat/chatService'
 import { conversationService } from '../services/conversation/conversationService'
 import { apiClient } from '../services/api/client'
-import type { Message, ChatState, StreamingState } from '../types/message'
+import type { Message, ChatState } from '../types/message'
 import type { StreamingChatRequest } from '../types/api'
 import { validateMessage } from '../utils/validation'
 
@@ -33,89 +32,11 @@ export const useChat = (conversationId?: number | null) => {
   const requestQueueRef = useRef<Set<string>>(new Set())
   const streamingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
-  const sendMessage = useCallback(async (
-    prompt: string, 
-    model?: string, 
-    provider?: string
-  ): Promise<number | undefined> => {
-    if (state.isLoading) return
-
-    let requestId: string | undefined
-
-    try {
-      const validatedPrompt = validateMessage(prompt, { maxLength: 10000 })
-      
-      requestId = `${conversationId}-${validatedPrompt}-${model}-${provider}`
-      if (requestQueueRef.current.has(requestId)) {
-        return // Prevent duplicate requests
-      }
-      requestQueueRef.current.add(requestId)
-
-      const userMessage: Message = {
-        id: Date.now().toString(),
-        text: validatedPrompt,
-        sender: 'user',
-        timestamp: new Date()
-      }
-
-      // Cancel any previous request
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort()
-      }
-      
-      // Create new abort controller for this request
-      abortControllerRef.current = new AbortController()
-
-      // Add user message and set loading state
-      setState(prev => ({
-        ...prev,
-        messages: [...prev.messages, userMessage],
-        isLoading: true,
-        error: null
-      }))
-
-      const result = await chatService.sendMessage(validatedPrompt, model, provider, conversationId || undefined)
-      
-      setState(prev => ({
-        ...prev,
-        messages: [...prev.messages, result.message],
-        isLoading: false
-      }))
-
-      return result.conversationId
-    } catch (error) {
-      // Don't show error if request was aborted
-      if (error instanceof Error && error.name === 'AbortError') {
-        setState(prev => ({ ...prev, isLoading: false }))
-        return undefined
-      }
-
-      const errorMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        text: `Error: ${error instanceof Error ? error.message : 'Could not connect to backend'}`,
-        sender: 'assistant',
-        timestamp: new Date()
-      }
-
-      setState(prev => ({
-        ...prev,
-        messages: [...prev.messages, errorMessage],
-        isLoading: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      }))
-
-      return undefined
-    } finally {
-      if (requestId) requestQueueRef.current.delete(requestId)
-      abortControllerRef.current = null
-    }
-  }, [state.isLoading, conversationId])
 
   const sendStreamingMessage = useCallback(async (
     prompt: string,
     model?: string,
-    provider?: string,
-    useStreaming: boolean = true
+    provider?: string
   ): Promise<number | undefined> => {
     if (state.isLoading || state.isStreaming) return
 
@@ -176,8 +97,7 @@ export const useChat = (conversationId?: number | null) => {
       }
 
       let fullResponse = ''
-      let finalConversationId: number | undefined
-
+  
       try {
         // Stream the response
         for await (const chunk of apiClient.sendStreamingMessage(streamRequest, abortControllerRef.current)) {
@@ -218,7 +138,7 @@ export const useChat = (conversationId?: number | null) => {
           streamingMessage: undefined
         }))
 
-        return finalConversationId
+        return undefined
 
       } catch (streamError) {
         console.warn('Streaming failed, falling back to regular request:', streamError)
@@ -231,15 +151,8 @@ export const useChat = (conversationId?: number | null) => {
           isLoading: true
         }))
 
-        const result = await chatService.sendMessage(validatedPrompt, model, provider, conversationId || undefined)
-        
-        setState(prev => ({
-          ...prev,
-          messages: [...prev.messages, result.message],
-          isLoading: false
-        }))
-
-        return result.conversationId
+        // If streaming fails completely, show error instead of fallback
+        throw streamError
       }
 
     } catch (error) {
@@ -361,7 +274,6 @@ export const useChat = (conversationId?: number | null) => {
     isStreaming: state.isStreaming,
     streamingMessage: state.streamingMessage,
     error: state.error,
-    sendMessage,
     sendStreamingMessage,
     clearMessages,
     clearError,

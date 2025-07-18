@@ -1,6 +1,4 @@
 import type { 
-  ChatRequest, 
-  ChatResponse, 
   ConversationRequest, 
   HealthStatus,
   ProvidersResponse,
@@ -145,29 +143,6 @@ class ApiClient {
     }
   }
 
-  /**
-   * Sends a chat message to the backend API.
-   * 
-   * @param request - The chat request containing prompt, model, and provider info
-   * @returns Promise resolving to the chat response
-   * @throws {AuthError} When authentication fails
-   * @throws {NetworkError} When network issues occur
-   * @throws {RateLimitError} When rate limits are exceeded
-   * @throws {ValidationError} When request validation fails
-   */
-  async sendMessage(request: ChatRequest): Promise<ChatResponse> {
-    const response = await this.fetchWithDeduplication(`${this.config.baseUrl}/chat`, {
-      method: 'POST',
-      body: JSON.stringify(request),
-    })
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ detail: response.statusText }))
-      throw createErrorFromResponse(response, errorData.detail)
-    }
-
-    return response.json()
-  }
 
   /**
    * Sends a streaming chat message to the backend API.
@@ -272,7 +247,7 @@ class ApiClient {
     }
   }
 
-  async sendConversation(request: ConversationRequest): Promise<ChatResponse> {
+  async sendConversation(request: ConversationRequest): Promise<any> {
     const response = await this.fetchWithDeduplication(`${this.config.baseUrl}/chat/conversation`, {
       method: 'POST',
       body: JSON.stringify(request),

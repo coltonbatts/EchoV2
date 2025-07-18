@@ -12,7 +12,6 @@ interface ChatWindowProps {
 
 const ChatWindow: React.FC<ChatWindowProps> = React.memo(({ 
   messages, 
-  isLoading, 
   isStreaming = false, 
   streamingMessage, 
   conversationId 
@@ -77,17 +76,6 @@ const ChatWindow: React.FC<ChatWindowProps> = React.memo(({
         </div>
       )}
       
-      {isLoading && !isStreaming && (
-        <div className="message assistant-message">
-          <div className="message-content">
-            <div className="loading-indicator">
-              <span>●</span>
-              <span>●</span>
-              <span>●</span>
-            </div>
-          </div>
-        </div>
-      )}
       
       <div ref={messagesEndRef} />
     </div>

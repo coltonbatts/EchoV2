@@ -31,7 +31,13 @@ function App() {
   } = useConversations()
 
   // Chat functionality
-  const { messages, isLoading: chatLoading, sendMessage } = useChat(activeConversationId)
+  const { 
+    messages, 
+    isLoading: chatLoading, 
+    isStreaming: chatStreaming, 
+    streamingMessage, 
+    sendStreamingMessage 
+  } = useChat(activeConversationId)
   
   // Provider configuration
   const { 
@@ -77,9 +83,9 @@ function App() {
   }, [])
 
   const handleSendMessage = useCallback(async () => {
-    if (!input.trim() || chatLoading) return
+    if (!input.trim() || chatLoading || chatStreaming) return
 
-    const conversationId = await sendMessage(input, selectedModel, selectedProvider)
+    const conversationId = await sendStreamingMessage(input, selectedModel, selectedProvider)
     setInput('')
 
     // If we got a new conversation ID and we're not in an active conversation, update the active conversation
@@ -108,7 +114,7 @@ function App() {
       // Update the conversation in the list to reflect new message
       refreshConversations()
     }
-  }, [input, chatLoading, sendMessage, selectedModel, selectedProvider, activeConversationId, selectConversation, refreshConversations])
+  }, [input, chatLoading, chatStreaming, sendStreamingMessage, selectedModel, selectedProvider, activeConversationId, selectConversation, refreshConversations])
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -182,7 +188,7 @@ function App() {
                   <select 
                     value={selectedProvider} 
                     onChange={(e) => setSelectedProvider(e.target.value)}
-                    disabled={chatLoading}
+                    disabled={chatLoading || chatStreaming}
                   >
                     {providers.providers.map(provider => (
                       <option key={provider} value={provider}>{provider}</option>
@@ -197,7 +203,7 @@ function App() {
                   <select 
                     value={selectedModel} 
                     onChange={(e) => setSelectedModel(e.target.value)}
-                    disabled={chatLoading}
+                    disabled={chatLoading || chatStreaming}
                   >
                     {providerModels[selectedProvider].map(model => (
                       <option key={model} value={model}>{model}</option>
@@ -205,6 +211,7 @@ function App() {
                   </select>
                 </div>
               )}
+              
             </div>
           </header>
           
@@ -213,6 +220,8 @@ function App() {
               <ChatWindow 
                 messages={messages} 
                 isLoading={chatLoading} 
+                isStreaming={chatStreaming}
+                streamingMessage={streamingMessage}
                 conversationId={activeConversationId}
               />
             </ErrorBoundaryWrapper>
@@ -223,14 +232,14 @@ function App() {
                 onChange={(e) => setInput(e.target.value)}
                 onKeyPress={handleKeyPress}
                 placeholder="Type your message..."
-                disabled={chatLoading}
+                disabled={chatLoading || chatStreaming}
                 rows={3}
               />
               <button 
                 onClick={handleSendMessage} 
-                disabled={!input.trim() || chatLoading}
+                disabled={!input.trim() || chatLoading || chatStreaming}
               >
-                {chatLoading ? 'Sending...' : 'Send'}
+                {chatLoading ? 'Sending...' : chatStreaming ? 'Streaming...' : 'Send'}
               </button>
             </div>
           </main>
