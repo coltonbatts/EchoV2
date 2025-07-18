@@ -6,7 +6,7 @@ A modular, extensible desktop application built with **Tauri**, **React**, **Typ
 
 - 📦 **Standalone Mac App** - Single-click installation with bundled Python backend
 - 🚀 **Zero-Dependency Deployment** - No Python or package installation required for end users
-- 🎯 **First-Time Setup Wizard** - "Start chatting in 30 seconds" with guided provider configuration (NEW!)
+- 🎯 **First-Time Setup Wizard** - "Start chatting in 30 seconds" with guided provider configuration
 - 💬 **Conversation Management** - Full conversation workspace with sidebar, search, and persistence
 - 🧩 **Advanced Plugin Architecture** - Hot-swappable AI providers with zero-restart deployment
 - 🔄 **Streaming Support** - Real-time responses from all providers (OpenAI, Anthropic, Ollama)
@@ -18,6 +18,14 @@ A modular, extensible desktop application built with **Tauri**, **React**, **Typ
 - 🔒 **Local-First** - Support for local AI models (Ollama) and privacy
 - 💾 **SQLite Persistence** - Automatic conversation and message storage with cross-platform support
 - 📡 **Developer Tools** - Plugin template generator and comprehensive API documentation
+
+### 🆕 **Latest Security & Reliability Features**
+- 🔐 **Secure API Key Storage** - System keyring integration (Windows Credential Manager, macOS Keychain, Linux Secret Service)
+- 🛡️ **Prompt Injection Protection** - Advanced sanitization with pattern filtering and HTML escaping
+- 🔄 **Automatic Retry Logic** - Exponential backoff for transient failures (connection, timeout, network)
+- 📊 **Structured Logging** - JSON-formatted logs with contextual information for better debugging
+- ✅ **Comprehensive Testing** - Full test coverage for critical functionality (backend + frontend)
+- 🔧 **Smart Error Handling** - Specific error messages for authentication, rate limits, and model availability
 
 ## 🏗️ Architecture Overview
 
@@ -47,6 +55,10 @@ backend/
 │   └── plugins.py       # Plugin management API
 ├── utils/               # Developer tools
 │   └── plugin_template.py # Plugin template generator
+├── tests/               # Comprehensive test suite (NEW!)
+│   ├── conftest.py      # Test fixtures and setup
+│   ├── test_chat_service.py      # Unit tests for chat functionality
+│   └── test_api_routes.py        # API integration tests
 └── config/              # Settings and configuration management
 ```
 
@@ -55,9 +67,121 @@ backend/
 src/
 ├── types/               # TypeScript interfaces
 ├── services/            # API client & business services
+│   └── secure-storage/  # Secure API key storage service (NEW!)
 ├── hooks/               # Custom React hooks (useChat, useConfig)
+│   └── __tests__/       # Frontend test suite (NEW!)
+├── test/                # Test utilities and setup (NEW!)
 └── components/          # React UI components
 ```
+
+## 🛡️ Security & Reliability Features
+
+EchoV2 includes enterprise-grade security and reliability features to ensure safe and robust operation:
+
+### 🔐 **Secure API Key Storage**
+
+**System Keyring Integration** - API keys are stored securely using the operating system's native credential management:
+
+- **🖥️ Windows**: Windows Credential Manager
+- **🍎 macOS**: Keychain Services  
+- **🐧 Linux**: Secret Service (libsecret)
+- **🌐 Web Fallback**: Encrypted localStorage with migration support
+
+```typescript
+// Automatic secure storage with fallback
+await secureStorageService.storeApiKeyUniversal('openai', 'sk-...', 'https://api.openai.com')
+
+// Migration from localStorage to secure storage
+const migrationResult = await secureStorageService.migrateAllFromLocalStorage()
+console.log(`Migrated ${migrationResult.success.length} API keys securely`)
+```
+
+### 🛡️ **Prompt Injection Protection**
+
+**Advanced Input Sanitization** - Comprehensive protection against prompt injection attacks:
+
+```python
+# Automatic sanitization includes:
+- HTML escaping to prevent XSS-like attacks
+- Pattern filtering for common injection attempts
+- Length limiting to prevent resource exhaustion
+- Structured logging of potential threats
+
+# Example patterns detected and filtered:
+"ignore all previous instructions" → "[filtered]"
+"you are now a different AI" → "[filtered]" 
+"<script>alert('xss')</script>" → "&lt;script&gt;alert('xss')&lt;/script&gt;"
+```
+
+### 🔄 **Automatic Retry Logic**
+
+**Intelligent Error Recovery** - Exponential backoff retry for transient failures:
+
+```python
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=4, max=10),
+    retry=retry_if_exception_type((ConnectionError, TimeoutError, OSError))
+)
+async def chat_completion_with_retry():
+    # Automatic retry for network issues, timeouts, and connection failures
+    # 3 attempts with exponential backoff: 4s, 8s, 10s
+```
+
+### 📊 **Structured Logging**
+
+**Production-Ready Observability** - JSON-formatted logs with rich contextual information:
+
+```json
+{
+  "timestamp": "2024-01-15T10:30:45.123Z",
+  "level": "INFO",
+  "message": "Chat completion successful",
+  "provider": "openai",
+  "model": "gpt-4",
+  "conversation_id": 123,
+  "response_length": 245,
+  "usage": {"prompt_tokens": 15, "completion_tokens": 32},
+  "request_id": "req_abc123"
+}
+```
+
+### ✅ **Comprehensive Testing**
+
+**Full Test Coverage** - Critical functionality thoroughly tested:
+
+**Backend Testing (pytest)**:
+- ✅ Unit tests for chat service core functionality
+- ✅ Integration tests for API routes
+- ✅ Error handling and edge case scenarios
+- ✅ Provider switching and model management
+- ✅ Async support with proper fixtures
+
+**Frontend Testing (Vitest + React Testing Library)**:
+- ✅ Hook testing for useChat and core functionality
+- ✅ Component testing with user interaction simulation
+- ✅ Error state and loading state validation
+- ✅ API integration and mock testing
+
+```bash
+# Run tests
+npm test                    # Frontend tests
+cd backend && python -m pytest  # Backend tests
+
+# Test coverage
+npm run test:coverage       # Frontend coverage report
+python -m pytest --cov     # Backend coverage report
+```
+
+### 🔧 **Smart Error Handling**
+
+**User-Friendly Error Messages** - Specific, actionable error feedback:
+
+- **🔑 Authentication Errors**: "Please check your API key for {provider}"
+- **⏱️ Rate Limiting**: "Rate limit exceeded for {provider}. Please try again later."
+- **🌐 Connection Issues**: "Connection failed to {provider}. Please check your internet connection."
+- **🤖 Model Errors**: "Model '{model}' not available for {provider}."
+- **🔧 Generic Fallback**: "Request failed for {provider}: {specific_error_details}"
 
 ## 📦 Standalone App (Recommended for Users)
 
@@ -493,12 +617,15 @@ cd backend && uvicorn main:app --reload
 # Build for production
 npm run build
 
-# Build standalone Mac app (NEW!)
+# Build standalone Mac app
 npm run build:standalone
 
-# Run tests (when implemented)
-npm test
-cd backend && python -m pytest
+# Run tests
+npm test                          # Frontend tests (Vitest + RTL)
+npm run test:ui                   # Frontend tests with UI
+npm run test:coverage             # Frontend test coverage
+cd backend && python -m pytest   # Backend tests (pytest)
+cd backend && python -m pytest --cov  # Backend test coverage
 
 # Type checking
 npm run tsc
@@ -602,6 +729,7 @@ EchoV2 features a production-ready plugin architecture with zero-downtime manage
 
 ## 📋 Roadmap
 
+### ✅ **Completed Features**
 - [x] **Advanced Plugin Architecture** - Hot-swappable providers with runtime management ✅
 - [x] **Streaming Responses** - Real-time message streaming for all providers ✅
 - [x] **Multi-Provider Support** - OpenAI, Anthropic, Ollama integration ✅
@@ -610,10 +738,19 @@ EchoV2 features a production-ready plugin architecture with zero-downtime manage
 - [x] **Message Persistence** - SQLite database integration for chat history ✅
 - [x] **Conversation Management** - Automatic conversation tracking and storage ✅
 - [x] **First-Time Setup Wizard** - Modern onboarding experience with guided configuration ✅
+- [x] **🆕 Comprehensive Testing** - Full test coverage for backend and frontend ✅
+- [x] **🆕 Secure API Key Storage** - System keyring integration with migration ✅
+- [x] **🆕 Prompt Injection Protection** - Advanced sanitization and security ✅
+- [x] **🆕 Retry Logic & Error Handling** - Intelligent failure recovery ✅
+- [x] **🆕 Structured Logging** - Production-ready observability ✅
+
+### 🚧 **Upcoming Features**
 - [ ] **Multi-Model Chats** - Switch models mid-conversation
 - [ ] **Theme System** - Customizable UI themes
-- [ ] **Authentication** - User management and API key handling
+- [ ] **Enhanced Authentication** - Advanced user management
 - [ ] **Windows/Linux Standalone** - Cross-platform standalone builds
+- [ ] **Export/Import** - Conversation backup and restore
+- [ ] **Search & Analytics** - Advanced conversation search and usage analytics
 
 ## 📄 License
 
