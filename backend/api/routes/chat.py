@@ -1,8 +1,11 @@
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, AsyncGenerator
 from services.chat_service import chat_service
 import logging
+import json
+import asyncio
 
 logger = logging.getLogger(__name__)
 
@@ -14,6 +17,7 @@ class ChatRequestModel(BaseModel):
     model: Optional[str] = None
     provider: Optional[str] = None
     conversation_id: Optional[int] = None
+    stream: Optional[bool] = False
 
 
 class ConversationMessage(BaseModel):
@@ -26,6 +30,7 @@ class ConversationRequestModel(BaseModel):
     model: Optional[str] = None
     provider: Optional[str] = None
     conversation_id: Optional[int] = None
+    stream: Optional[bool] = False
 
 
 class ChatResponseModel(BaseModel):
@@ -36,24 +41,60 @@ class ChatResponseModel(BaseModel):
     conversation_id: Optional[int] = None
 
 
-@router.post("/", response_model=ChatResponseModel)
-async def chat_completion(request: ChatRequestModel):
-    """Send a single message to the AI and get a response."""
+async def create_sse_stream(generator: AsyncGenerator[str, None]) -> AsyncGenerator[str, None]:
+    """Convert a response generator to SSE format."""
     try:
-        response, conversation_id = await chat_service.send_message(
-            prompt=request.prompt,
-            model=request.model,
-            provider=request.provider,
-            conversation_id=request.conversation_id
-        )
+        async for chunk in generator:
+            # Format as Server-Sent Events
+            yield f"data: {json.dumps({'chunk': chunk, 'type': 'content'})}\n\n"
         
-        return ChatResponseModel(
-            response=response.content,
-            model=response.model,
-            provider=request.provider,
-            metadata=response.metadata,
-            conversation_id=conversation_id
-        )
+        # Send completion signal
+        yield f"data: {json.dumps({'type': 'done'})}\n\n"
+        
+    except Exception as e:
+        # Send error signal
+        yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+
+
+@router.post("/")
+async def chat_completion(request: ChatRequestModel):
+    """Send a single message to the AI and get a response (streaming or non-streaming)."""
+    try:
+        if request.stream:
+            # Return streaming response
+            generator = chat_service.send_message_stream(
+                prompt=request.prompt,
+                model=request.model,
+                provider=request.provider,
+                conversation_id=request.conversation_id
+            )
+            
+            return StreamingResponse(
+                create_sse_stream(generator),
+                media_type="text/plain",
+                headers={
+                    "Cache-Control": "no-cache",
+                    "Connection": "keep-alive",
+                    "Content-Type": "text/plain; charset=utf-8",
+                    "X-Accel-Buffering": "no"  # Disable nginx buffering
+                }
+            )
+        else:
+            # Return complete response
+            response, conversation_id = await chat_service.send_message(
+                prompt=request.prompt,
+                model=request.model,
+                provider=request.provider,
+                conversation_id=request.conversation_id
+            )
+            
+            return ChatResponseModel(
+                response=response.content,
+                model=response.model,
+                provider=request.provider,
+                metadata=response.metadata,
+                conversation_id=conversation_id
+            )
         
     except Exception as e:
         logger.error(f"Chat completion failed: {e}")

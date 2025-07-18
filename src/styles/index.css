@@ -1015,3 +1015,188 @@ body {
     width: 100%;
   }
 }
+
+/* Streaming-specific styles */
+.streaming-message {
+  opacity: 1;
+}
+
+.streaming-text {
+  position: relative;
+}
+
+.streaming-indicator {
+  display: inline;
+  position: relative;
+  margin-left: 2px;
+}
+
+.cursor {
+  color: #007aff;
+  font-weight: bold;
+  animation: blink 1s infinite;
+}
+
+@keyframes blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+
+.assistant-message.streaming-message .message-content {
+  background-color: #f0f0f0;
+  border: 1px solid #e0e0e0;
+  position: relative;
+}
+
+.assistant-message.streaming-message .message-content::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, #007aff, #007aff);
+  animation: streamingProgress 2s ease-in-out infinite;
+}
+
+@keyframes streamingProgress {
+  0% { width: 0%; }
+  50% { width: 100%; }
+  100% { width: 0%; }
+}
+
+/* Streaming Chat Example Component Styles */
+.streaming-chat-example {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.chat-header {
+  background-color: #2c3e50;
+  color: white;
+  padding: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #34495e;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.chat-header h2 {
+  margin: 0;
+  font-size: 1.3rem;
+  font-weight: 600;
+}
+
+.chat-controls {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.streaming-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.streaming-toggle input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.model-selectors {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.model-selectors select {
+  padding: 0.25rem 0.5rem;
+  border: 1px solid #34495e;
+  border-radius: 0.25rem;
+  background-color: #ecf0f1;
+  color: #2c3e50;
+  font-size: 0.9rem;
+  min-width: 100px;
+}
+
+.model-selectors select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.chat-actions {
+  padding: 1rem;
+  background-color: #f8f9fa;
+  border-top: 1px solid #ddd;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.secondary-button {
+  background-color: #6c757d;
+  color: white;
+  border: none;
+  border-radius: 0.5rem;
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.secondary-button:hover:not(:disabled) {
+  background-color: #5a6268;
+}
+
+.secondary-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.status-indicators {
+  display: flex;
+  gap: 1rem;
+}
+
+.status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  animation: pulse 2s infinite;
+}
+
+.status-indicator.streaming .status-dot {
+  background-color: #28a745;
+}
+
+.status-indicator.loading .status-dot {
+  background-color: #ffc107;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(1.1);
+  }
+}

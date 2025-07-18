@@ -17,18 +17,19 @@ interface ConversationSidebarProps {
   onClearError: () => void
 }
 
-const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
-  conversations,
-  activeConversationId,
-  isLoading,
-  error,
-  onSelectConversation,
-  onNewConversation,
-  onDeleteConversation,
-  onRenameConversation,
-  onRefresh,
-  onClearError
-) => {
+const ConversationSidebar: React.FC<ConversationSidebarProps> = (props) => {
+  const {
+    conversations,
+    activeConversationId,
+    isLoading,
+    error,
+    onSelectConversation,
+    onNewConversation,
+    onDeleteConversation,
+    onRenameConversation,
+    onRefresh,
+    onClearError
+  } = props;
   const [searchTerm, setSearchTerm] = useState('')
   const debouncedSearchTerm = useDebounce(searchTerm, 300)
 

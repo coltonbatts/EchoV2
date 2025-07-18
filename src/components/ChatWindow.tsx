@@ -5,10 +5,18 @@ import { sanitizeForDisplay } from '../utils/sanitization'
 interface ChatWindowProps {
   messages: Message[]
   isLoading: boolean
+  isStreaming?: boolean
+  streamingMessage?: Message
   conversationId?: number | null
 }
 
-const ChatWindow: React.FC<ChatWindowProps> = React.memo(({ messages, isLoading, conversationId }) => {
+const ChatWindow: React.FC<ChatWindowProps> = React.memo(({ 
+  messages, 
+  isLoading, 
+  isStreaming = false, 
+  streamingMessage, 
+  conversationId 
+}) => {
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const scrollToBottom = () => {
@@ -17,7 +25,7 @@ const ChatWindow: React.FC<ChatWindowProps> = React.memo(({ messages, isLoading,
 
   useEffect(() => {
     scrollToBottom()
-  }, [messages])
+  }, [messages, streamingMessage])
 
   return (
     <div className="chat-window">
@@ -48,7 +56,28 @@ const ChatWindow: React.FC<ChatWindowProps> = React.memo(({ messages, isLoading,
         </div>
       ))}
       
-      {isLoading && (
+      {/* Streaming message */}
+      {isStreaming && streamingMessage && (
+        <div
+          key={`streaming-${streamingMessage.id}`}
+          className="message assistant-message streaming-message"
+        >
+          <div className="message-content">
+            <div 
+              className="message-text streaming-text"
+              dangerouslySetInnerHTML={{ __html: sanitizeForDisplay(streamingMessage.text) }}
+            />
+            <div className="streaming-indicator">
+              <span className="cursor">|</span>
+            </div>
+            <span className="message-time">
+              {streamingMessage.timestamp.toLocaleTimeString()}
+            </span>
+          </div>
+        </div>
+      )}
+      
+      {isLoading && !isStreaming && (
         <div className="message assistant-message">
           <div className="message-content">
             <div className="loading-indicator">

@@ -1,4 +1,4 @@
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, AsyncGenerator
 import re
 import html
 from core.models.base import ChatRequest, ChatResponse, ChatMessage
@@ -172,6 +172,90 @@ class ChatService:
         except Exception as e:
             logger.error_provider_failure(
                 "Chat completion failed",
+                provider=provider,
+                model=model,
+                error_type=type(e).__name__,
+                extra={'error_message': str(e), 'conversation_id': conversation_id}
+            )
+            raise
+
+    async def send_message_stream(
+        self,
+        prompt: str,
+        model: Optional[str] = None,
+        provider: Optional[str] = None,
+        conversation_id: Optional[int] = None
+    ) -> AsyncGenerator[str, None]:
+        """Send a message and get streaming AI response with database persistence."""
+        try:
+            # Validate and sanitize the prompt
+            if not self._validate_prompt(prompt):
+                raise ValueError("Invalid prompt provided")
+                
+            sanitized_prompt = self._sanitize_prompt(prompt)
+            
+            # Get or create conversation
+            conversation = await ConversationService.get_or_create_conversation(conversation_id)
+            
+            # Save user message to database (use sanitized prompt)
+            await ConversationService.add_message(
+                conversation_id=conversation.id,
+                role="user",
+                content=sanitized_prompt,
+                provider=provider,
+                model=model
+            )
+            
+            # Create chat request
+            user_message = ChatMessage(role="user", content=sanitized_prompt)
+            request = ChatRequest(
+                messages=[user_message],
+                model=model
+            )
+            
+            # Log the request
+            logger.info_chat_request(
+                "Processing streaming chat request",
+                provider=provider,
+                model=model,
+                conversation_id=conversation.id,
+                prompt_length=len(sanitized_prompt)
+            )
+            
+            # Get streaming response from model manager
+            full_response = ""
+            async for chunk in self.model_manager.chat_completion_stream(request, provider):
+                full_response += chunk
+                yield chunk
+            
+            # Save complete assistant response to database
+            await ConversationService.add_message(
+                conversation_id=conversation.id,
+                role="assistant",
+                content=full_response,
+                provider=provider,
+                model=model or "unknown"
+            )
+            
+            # Update conversation title if it's the first message
+            if not conversation.title:
+                title = await ConversationService.generate_conversation_title(conversation.id)
+                if title:
+                    await ConversationService.update_conversation_title(conversation.id, title)
+            
+            # Log successful response
+            logger.info_chat_response(
+                "Streaming chat completion successful",
+                provider=provider or "unknown",
+                model=model or "unknown",
+                conversation_id=conversation.id,
+                response_length=len(full_response),
+                usage=None  # Usage not available for streaming
+            )
+            
+        except Exception as e:
+            logger.error_provider_failure(
+                "Streaming chat completion failed",
                 provider=provider,
                 model=model,
                 error_type=type(e).__name__,

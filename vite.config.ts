@@ -9,8 +9,11 @@ export default defineConfig({
     port: 1420,
     strictPort: true,
     watch: {
-      ignored: ["**/src-tauri/**"],
+      ignored: ["**/src-tauri/**", "**/backend/**"],
     },
+  },
+  optimizeDeps: {
+    entries: ['index.html']
   },
   build: {
     target: process.env.TAURI_PLATFORM == 'windows' ? 'chrome105' : 'safari13',

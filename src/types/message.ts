@@ -14,4 +14,13 @@ export interface ChatState {
   messages: Message[]
   isLoading: boolean
   error: string | null
+  isStreaming?: boolean
+  streamingMessage?: Message
+}
+
+export interface StreamingState {
+  isStreaming: boolean
+  currentMessage: string
+  conversationId?: number
+  error?: string
 }

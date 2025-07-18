@@ -11,7 +11,10 @@ import type {
   UpdateTitleRequest,
   DeleteConversationResponse,
   UpdateTitleResponse,
-  GenerateTitleResponse
+  GenerateTitleResponse,
+  StreamChunk,
+  StreamingChatRequest,
+  StreamingResponse
 } from '../../types/api'
 import { createErrorFromResponse, TimeoutError, isRetryableError, getRetryDelay } from '../../types/errors'
 
@@ -164,6 +167,109 @@ class ApiClient {
     }
 
     return response.json()
+  }
+
+  /**
+   * Sends a streaming chat message to the backend API.
+   * 
+   * @param request - The streaming chat request
+   * @param abortController - Optional AbortController for canceling the request
+   * @returns AsyncGenerator yielding streaming response chunks
+   * @throws {AuthError} When authentication fails
+   * @throws {NetworkError} When network issues occur
+   * @throws {ValidationError} When request validation fails
+   */
+  async* sendStreamingMessage(
+    request: StreamingChatRequest, 
+    abortController?: AbortController
+  ): AsyncGenerator<StreamChunk, StreamingResponse, unknown> {
+    const controller = abortController || new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), this.config.timeout)
+
+    let conversationId: number | undefined
+    let model: string | undefined
+    let provider: string | undefined
+
+    try {
+      const response = await fetch(`${this.config.baseUrl}/chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ ...request, stream: true }),
+        signal: controller.signal,
+      })
+
+      clearTimeout(timeoutId)
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: response.statusText }))
+        throw createErrorFromResponse(response, errorData.detail)
+      }
+
+      if (!response.body) {
+        throw new Error('No response body received for streaming request')
+      }
+
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read()
+          
+          if (done) break
+
+          buffer += decoder.decode(value, { stream: true })
+          const lines = buffer.split('\n')
+          buffer = lines.pop() || '' // Keep incomplete line in buffer
+
+          for (const line of lines) {
+            if (line.trim() === '') continue
+            
+            if (line.startsWith('data: ')) {
+              try {
+                const data: StreamChunk = JSON.parse(line.slice(6))
+                
+                if (data.type === 'error') {
+                  throw new Error(data.message || 'Streaming error occurred')
+                }
+                
+                if (data.type === 'done') {
+                  return {
+                    conversationId,
+                    model,
+                    provider
+                  }
+                }
+                
+                if (data.type === 'content' && data.chunk) {
+                  yield data
+                }
+              } catch (parseError) {
+                console.warn('Failed to parse SSE data:', line, parseError)
+              }
+            }
+          }
+        }
+      } finally {
+        reader.releaseLock()
+      }
+
+      return {
+        conversationId,
+        model,
+        provider
+      }
+
+    } catch (error) {
+      clearTimeout(timeoutId)
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new TimeoutError('Streaming request timed out', this.config.timeout)
+      }
+      throw error
+    }
   }
 
   async sendConversation(request: ConversationRequest): Promise<ChatResponse> {

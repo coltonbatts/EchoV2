@@ -3,6 +3,7 @@ export interface ChatRequest {
   model?: string
   provider?: string
   conversation_id?: number
+  stream?: boolean
 }
 
 export interface ConversationRequest {
@@ -10,6 +11,7 @@ export interface ConversationRequest {
   model?: string
   provider?: string
   conversation_id?: number
+  stream?: boolean
 }
 
 export interface ChatResponse {
@@ -100,4 +102,21 @@ export interface UpdateTitleResponse {
 export interface GenerateTitleResponse {
   title: string
   message: string
+}
+
+// Streaming-specific types
+export interface StreamChunk {
+  chunk?: string
+  type: 'content' | 'done' | 'error'
+  message?: string
+}
+
+export interface StreamingChatRequest extends ChatRequest {
+  stream: true
+}
+
+export interface StreamingResponse {
+  conversationId?: number
+  model?: string
+  provider?: string
 }
