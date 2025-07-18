@@ -20,12 +20,14 @@ A modular, extensible desktop application built with **Tauri**, **React**, **Typ
 - 📡 **Developer Tools** - Plugin template generator and comprehensive API documentation
 
 ### 🆕 **Latest Security & Reliability Features**
-- 🔐 **Secure API Key Storage** - System keyring integration (Windows Credential Manager, macOS Keychain, Linux Secret Service)
-- 🛡️ **Prompt Injection Protection** - Advanced sanitization with pattern filtering and HTML escaping
-- 🔄 **Automatic Retry Logic** - Exponential backoff for transient failures (connection, timeout, network)
-- 📊 **Structured Logging** - JSON-formatted logs with contextual information for better debugging
-- ✅ **Comprehensive Testing** - Full test coverage for critical functionality (backend + frontend)
-- 🔧 **Smart Error Handling** - Specific error messages for authentication, rate limits, and model availability
+- 🔐 **Enhanced Error Handling** - Custom error types with retry logic and user-friendly messages
+- 🛡️ **XSS Protection** - Complete HTML sanitization pipeline with input validation
+- 🚫 **Memory Leak Prevention** - Comprehensive cleanup for timeouts, API requests, and effects
+- ⚡ **Performance Optimizations** - Debounced search, request deduplication, and React.memo
+- 🛠️ **Error Boundaries** - React error catching with automatic recovery
+- 📝 **Input Validation** - Client-side validation with security pattern detection
+- 🔄 **Request Management** - AbortController cleanup and race condition prevention
+- 📚 **JSDoc Documentation** - Comprehensive API documentation for maintainability
 
 ## 🏗️ Architecture Overview
 
@@ -78,110 +80,148 @@ src/
 
 EchoV2 includes enterprise-grade security and reliability features to ensure safe and robust operation:
 
-### 🔐 **Secure API Key Storage**
+### 🔐 **Enhanced Error Handling**
 
-**System Keyring Integration** - API keys are stored securely using the operating system's native credential management:
-
-- **🖥️ Windows**: Windows Credential Manager
-- **🍎 macOS**: Keychain Services  
-- **🐧 Linux**: Secret Service (libsecret)
-- **🌐 Web Fallback**: Encrypted localStorage with migration support
+**Custom Error Types with Smart Retry Logic** - Comprehensive error management system:
 
 ```typescript
-// Automatic secure storage with fallback
-await secureStorageService.storeApiKeyUniversal('openai', 'sk-...', 'https://api.openai.com')
+// Custom error types for specific scenarios
+class AuthError extends Error { readonly isRetryable = false }
+class NetworkError extends Error { readonly isRetryable = true }
+class RateLimitError extends Error { readonly retryAfter: number }
 
-// Migration from localStorage to secure storage
-const migrationResult = await secureStorageService.migrateAllFromLocalStorage()
-console.log(`Migrated ${migrationResult.success.length} API keys securely`)
-```
-
-### 🛡️ **Prompt Injection Protection**
-
-**Advanced Input Sanitization** - Comprehensive protection against prompt injection attacks:
-
-```python
-# Automatic sanitization includes:
-- HTML escaping to prevent XSS-like attacks
-- Pattern filtering for common injection attempts
-- Length limiting to prevent resource exhaustion
-- Structured logging of potential threats
-
-# Example patterns detected and filtered:
-"ignore all previous instructions" → "[filtered]"
-"you are now a different AI" → "[filtered]" 
-"<script>alert('xss')</script>" → "&lt;script&gt;alert('xss')&lt;/script&gt;"
-```
-
-### 🔄 **Automatic Retry Logic**
-
-**Intelligent Error Recovery** - Exponential backoff retry for transient failures:
-
-```python
-@retry(
-    stop=stop_after_attempt(3),
-    wait=wait_exponential(multiplier=1, min=4, max=10),
-    retry=retry_if_exception_type((ConnectionError, TimeoutError, OSError))
-)
-async def chat_completion_with_retry():
-    # Automatic retry for network issues, timeouts, and connection failures
-    # 3 attempts with exponential backoff: 4s, 8s, 10s
-```
-
-### 📊 **Structured Logging**
-
-**Production-Ready Observability** - JSON-formatted logs with rich contextual information:
-
-```json
-{
-  "timestamp": "2024-01-15T10:30:45.123Z",
-  "level": "INFO",
-  "message": "Chat completion successful",
-  "provider": "openai",
-  "model": "gpt-4",
-  "conversation_id": 123,
-  "response_length": 245,
-  "usage": {"prompt_tokens": 15, "completion_tokens": 32},
-  "request_id": "req_abc123"
+// Intelligent retry logic with exponential backoff
+const delay = getRetryDelay(error, attempt) // Smart delay calculation
+if (isRetryableError(error)) {
+  // Retry with appropriate delay
 }
 ```
 
-### ✅ **Comprehensive Testing**
+### 🛡️ **XSS Protection & Input Sanitization**
 
-**Full Test Coverage** - Critical functionality thoroughly tested:
+**Complete Security Pipeline** - Multi-layer protection against XSS and injection attacks:
 
-**Backend Testing (pytest)**:
-- ✅ Unit tests for chat service core functionality
-- ✅ Integration tests for API routes
-- ✅ Error handling and edge case scenarios
-- ✅ Provider switching and model management
-- ✅ Async support with proper fixtures
+```typescript
+// HTML sanitization for safe display
+const safeContent = sanitizeForDisplay(userMessage)
+// Converts: "Hello\n<script>alert('xss')</script>"
+// To: "Hello<br>&lt;script&gt;alert('xss')&lt;/script&gt;"
 
-**Frontend Testing (Vitest + React Testing Library)**:
-- ✅ Hook testing for useChat and core functionality
-- ✅ Component testing with user interaction simulation
-- ✅ Error state and loading state validation
-- ✅ API integration and mock testing
+// Input validation with security checks
+const validMessage = validateMessage(input, {
+  maxLength: 10000,
+  checkSuspiciousPatterns: true
+})
 
-```bash
-# Run tests
-npm test                    # Frontend tests
-cd backend && python -m pytest  # Backend tests
-
-# Test coverage
-npm run test:coverage       # Frontend coverage report
-python -m pytest --cov     # Backend coverage report
+// Debounced search with sanitization
+const debouncedSearch = useDebounce(sanitizeSearchTerm(searchTerm), 300)
 ```
 
-### 🔧 **Smart Error Handling**
+### 🚫 **Memory Leak Prevention**
 
-**User-Friendly Error Messages** - Specific, actionable error feedback:
+**Comprehensive Cleanup Management** - Prevents memory leaks and resource issues:
 
-- **🔑 Authentication Errors**: "Please check your API key for {provider}"
-- **⏱️ Rate Limiting**: "Rate limit exceeded for {provider}. Please try again later."
-- **🌐 Connection Issues**: "Connection failed to {provider}. Please check your internet connection."
-- **🤖 Model Errors**: "Model '{model}' not available for {provider}."
-- **🔧 Generic Fallback**: "Request failed for {provider}: {specific_error_details}"
+```typescript
+// AbortController cleanup for API requests
+useEffect(() => {
+  return () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+    }
+    requestQueueRef.current.clear()
+  }
+}, [])
+
+// Timeout cleanup for auto-generated titles
+useEffect(() => {
+  return () => {
+    if (titleGenerationTimeoutRef.current) {
+      clearTimeout(titleGenerationTimeoutRef.current)
+    }
+  }
+}, [])
+```
+
+### ⚡ **Performance Optimizations**
+
+**Smart Rendering and Request Management**:
+
+```typescript
+// React.memo for expensive components
+const ChatWindow = React.memo(({ messages, isLoading }) => {
+  // Optimized rendering
+})
+
+// Request deduplication prevents duplicate API calls
+const requestKey = createRequestKey(url, options)
+if (pendingRequests.has(requestKey)) {
+  return pendingRequests.get(requestKey) // Return existing promise
+}
+
+// Debounced search prevents excessive filtering
+const debouncedSearchTerm = useDebounce(searchTerm, 300)
+```
+
+### 🛠️ **Error Boundaries & Recovery**
+
+**React Error Boundaries with Automatic Recovery**:
+
+```typescript
+<ErrorBoundary 
+  onError={(error, info) => logError(error)}
+  fallback={<FallbackUI />}
+>
+  <ChatWindow />
+</ErrorBoundary>
+
+// Automatic retry with exponential backoff
+const resetErrorBoundary = () => {
+  setTimeout(() => {
+    setState({ hasError: false })
+  }, 100)
+}
+```
+
+### 📝 **Input Validation & Security**
+
+**Client-side Security with Pattern Detection**:
+
+```typescript
+// Suspicious pattern detection
+const suspiciousPatterns = [
+  /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi,
+  /javascript:/gi,
+  /on\w+\s*=/gi
+]
+
+// API key format validation
+const validateApiKey = (key: string, provider: string) => {
+  const patterns = {
+    openai: /^sk-[a-zA-Z0-9]{48,}$/,
+    anthropic: /^sk-ant-api03-[a-zA-Z0-9_-]{95}$/
+  }
+  // Validate against provider-specific patterns
+}
+```
+
+### 🔄 **Request Management & Race Condition Prevention**
+
+**Advanced Request Lifecycle Management**:
+
+```typescript
+// Request deduplication with caching
+private pendingRequests = new Map<string, Promise<Response>>()
+private requestCache = new Map<string, { response: any; timestamp: number }>()
+
+// Race condition prevention
+const sendMessage = useCallback(async (prompt: string) => {
+  const requestId = `${conversationId}-${prompt}-${model}`
+  if (requestQueueRef.current.has(requestId)) {
+    return // Prevent duplicate requests
+  }
+  // Process request...
+}, [])
+```
 
 ## 📦 Standalone App (Recommended for Users)
 
@@ -738,11 +778,13 @@ EchoV2 features a production-ready plugin architecture with zero-downtime manage
 - [x] **Message Persistence** - SQLite database integration for chat history ✅
 - [x] **Conversation Management** - Automatic conversation tracking and storage ✅
 - [x] **First-Time Setup Wizard** - Modern onboarding experience with guided configuration ✅
-- [x] **🆕 Comprehensive Testing** - Full test coverage for backend and frontend ✅
-- [x] **🆕 Secure API Key Storage** - System keyring integration with migration ✅
-- [x] **🆕 Prompt Injection Protection** - Advanced sanitization and security ✅
-- [x] **🆕 Retry Logic & Error Handling** - Intelligent failure recovery ✅
-- [x] **🆕 Structured Logging** - Production-ready observability ✅
+- [x] **🆕 Enhanced Error Handling** - Custom error types with smart retry logic ✅
+- [x] **🆕 XSS Protection** - Complete HTML sanitization and input validation ✅
+- [x] **🆕 Memory Leak Prevention** - Comprehensive cleanup for timeouts and requests ✅
+- [x] **🆕 Performance Optimizations** - Debounced search, request deduplication, React.memo ✅
+- [x] **🆕 Error Boundaries** - React error catching with automatic recovery ✅
+- [x] **🆕 Request Management** - AbortController cleanup and race condition prevention ✅
+- [x] **🆕 JSDoc Documentation** - Comprehensive API documentation for maintainability ✅
 
 ### 🚧 **Upcoming Features**
 - [ ] **Multi-Model Chats** - Switch models mid-conversation

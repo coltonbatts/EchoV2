@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react'
 import type { Message } from '../types/message'
+import { sanitizeForDisplay } from '../utils/sanitization'
 
 interface ChatWindowProps {
   messages: Message[]
@@ -7,7 +8,7 @@ interface ChatWindowProps {
   conversationId?: number | null
 }
 
-const ChatWindow: React.FC<ChatWindowProps> = ({ messages, isLoading, conversationId }) => {
+const ChatWindow: React.FC<ChatWindowProps> = React.memo(({ messages, isLoading, conversationId }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const scrollToBottom = () => {
@@ -36,7 +37,10 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ messages, isLoading, conversati
           className={`message ${message.sender === 'user' ? 'user-message' : 'assistant-message'}`}
         >
           <div className="message-content">
-            <pre className="message-text">{message.text}</pre>
+            <div 
+              className="message-text"
+              dangerouslySetInnerHTML={{ __html: sanitizeForDisplay(message.text) }}
+            />
             <span className="message-time">
               {message.timestamp.toLocaleTimeString()}
             </span>
@@ -59,6 +63,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ messages, isLoading, conversati
       <div ref={messagesEndRef} />
     </div>
   )
-}
+})
+
+ChatWindow.displayName = 'ChatWindow'
 
 export default ChatWindow

@@ -1,7 +1,8 @@
-import React, { useState, useCallback, useEffect } from 'react'
+import React, { useState, useCallback, useEffect, useRef } from 'react'
 import ChatWindow from './components/ChatWindow'
 import ConversationSidebar from './components/ConversationSidebar'
 import SetupWizard from './components/SetupWizard'
+import { ErrorBoundaryWrapper } from './components/ErrorBoundary'
 import { useChat } from './hooks/useChat'
 import { useConfig } from './hooks/useConfig'
 import { useConversations } from './hooks/useConversations'
@@ -13,6 +14,7 @@ function App() {
   const [input, setInput] = useState('')
   const [isSetupComplete, setIsSetupComplete] = useState<boolean>(false)
   const [isCheckingSetup, setIsCheckingSetup] = useState<boolean>(true)
+  const titleGenerationTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   
   // Conversation management
   const {
@@ -58,6 +60,15 @@ function App() {
     checkSetupStatus()
   }, [])
 
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (titleGenerationTimeoutRef.current) {
+        clearTimeout(titleGenerationTimeoutRef.current)
+      }
+    }
+  }, [])
+
   // Handle setup completion
   const handleSetupComplete = useCallback((config: SetupConfig) => {
     setIsSetupComplete(true)
@@ -75,8 +86,13 @@ function App() {
     if (conversationId && !activeConversationId) {
       selectConversation(conversationId)
       
+      // Clear any existing timeout
+      if (titleGenerationTimeoutRef.current) {
+        clearTimeout(titleGenerationTimeoutRef.current)
+      }
+
       // Auto-generate title for new conversation after a short delay
-      setTimeout(async () => {
+      titleGenerationTimeoutRef.current = setTimeout(async () => {
         try {
           await conversationService.generateConversationTitle(conversationId)
           refreshConversations()
@@ -84,6 +100,8 @@ function App() {
           console.warn('Failed to auto-generate conversation title:', error)
           // Still refresh to show the conversation in the sidebar
           refreshConversations()
+        } finally {
+          titleGenerationTimeoutRef.current = null
         }
       }, 1000)
     } else if (conversationId && activeConversationId) {
@@ -133,18 +151,20 @@ function App() {
   return (
     <div className="app">
       <div className="app-layout">
-        <ConversationSidebar
-          conversations={conversations}
-          activeConversationId={activeConversationId}
-          isLoading={conversationsLoading}
-          error={conversationsError}
-          onSelectConversation={handleSelectConversation}
-          onNewConversation={newConversation}
-          onDeleteConversation={deleteConversation}
-          onRenameConversation={renameConversation}
-          onRefresh={refreshConversations}
-          onClearError={clearConversationsError}
-        />
+        <ErrorBoundaryWrapper>
+          <ConversationSidebar
+            conversations={conversations}
+            activeConversationId={activeConversationId}
+            isLoading={conversationsLoading}
+            error={conversationsError}
+            onSelectConversation={handleSelectConversation}
+            onNewConversation={newConversation}
+            onDeleteConversation={deleteConversation}
+            onRenameConversation={renameConversation}
+            onRefresh={refreshConversations}
+            onClearError={clearConversationsError}
+          />
+        </ErrorBoundaryWrapper>
         
         <div className="main-content">
           <header className="app-header">
@@ -189,11 +209,13 @@ function App() {
           </header>
           
           <main className="app-main">
-            <ChatWindow 
-              messages={messages} 
-              isLoading={chatLoading} 
-              conversationId={activeConversationId}
-            />
+            <ErrorBoundaryWrapper>
+              <ChatWindow 
+                messages={messages} 
+                isLoading={chatLoading} 
+                conversationId={activeConversationId}
+              />
+            </ErrorBoundaryWrapper>
             
             <div className="input-container">
               <textarea

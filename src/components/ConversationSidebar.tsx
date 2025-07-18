@@ -1,6 +1,8 @@
-import React, { useState } from 'react'
+import React, { useState, useMemo } from 'react'
 import ConversationListItem from './ConversationListItem'
 import type { ConversationSummary } from '../types/api'
+import { useDebounce } from '../utils/debounce'
+import { sanitizeSearchTerm } from '../utils/validation'
 
 interface ConversationSidebarProps {
   conversations: ConversationSummary[]
@@ -26,15 +28,24 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
   onRenameConversation,
   onRefresh,
   onClearError
-}) => {
+) => {
   const [searchTerm, setSearchTerm] = useState('')
+  const debouncedSearchTerm = useDebounce(searchTerm, 300)
 
-  const filteredConversations = conversations.filter(conversation => {
-    if (!searchTerm.trim()) return true
+  const filteredConversations = useMemo(() => {
+    if (!debouncedSearchTerm.trim()) return conversations
     
-    const displayTitle = conversation.title || conversation.last_message_preview || 'New Conversation'
-    return displayTitle.toLowerCase().includes(searchTerm.toLowerCase())
-  })
+    const sanitizedTerm = sanitizeSearchTerm(debouncedSearchTerm).toLowerCase()
+    if (!sanitizedTerm) return conversations
+
+    return conversations.filter(conversation => {
+      const displayTitle = conversation.title || conversation.last_message_preview || 'New Conversation'
+      const preview = conversation.last_message_preview || ''
+      
+      return displayTitle.toLowerCase().includes(sanitizedTerm) ||
+             preview.toLowerCase().includes(sanitizedTerm)
+    })
+  }, [conversations, debouncedSearchTerm])
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value)
@@ -102,9 +113,9 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
           </div>
         ) : filteredConversations.length === 0 ? (
           <div className="empty-state">
-            {searchTerm ? (
+            {debouncedSearchTerm ? (
               <div>
-                <p>No conversations found for "{searchTerm}"</p>
+                <p>No conversations found for "{debouncedSearchTerm}"</p>
                 <button
                   type="button"
                   onClick={clearSearch}

@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useCallback } from 'react'
 import type { ConversationSummary } from '../types/api'
 import { conversationService } from '../services/conversation/conversationService'
 
@@ -10,7 +10,7 @@ interface ConversationListItemProps {
   onRename: (id: number, title: string) => void
 }
 
-const ConversationListItem: React.FC<ConversationListItemProps> = ({
+const ConversationListItem: React.FC<ConversationListItemProps> = React.memo(({
   conversation,
   isActive,
   onSelect,
@@ -24,12 +24,12 @@ const ConversationListItem: React.FC<ConversationListItemProps> = ({
   const displayTitle = conversationService.getDisplayTitle(conversation)
   const formattedTime = conversationService.formatTimestamp(conversation.updated_at)
 
-  const handleTitleEdit = () => {
+  const handleTitleEdit = useCallback(() => {
     setIsEditing(true)
     setEditTitle(conversation.title || displayTitle)
-  }
+  }, [conversation.title, displayTitle])
 
-  const handleTitleSave = async () => {
+  const handleTitleSave = useCallback(async () => {
     if (editTitle.trim() && editTitle !== conversation.title) {
       try {
         await onRename(conversation.id, editTitle.trim())
@@ -38,34 +38,43 @@ const ConversationListItem: React.FC<ConversationListItemProps> = ({
       }
     }
     setIsEditing(false)
-  }
+  }, [editTitle, conversation.title, conversation.id, onRename])
 
-  const handleTitleCancel = () => {
+  const handleTitleCancel = useCallback(() => {
     setIsEditing(false)
     setEditTitle(conversation.title || '')
-  }
+  }, [conversation.title])
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyPress = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       handleTitleSave()
     } else if (e.key === 'Escape') {
       handleTitleCancel()
     }
-  }
+  }, [handleTitleSave, handleTitleCancel])
 
-  const handleDelete = (e: React.MouseEvent) => {
+  const handleDelete = useCallback((e: React.MouseEvent) => {
     e.stopPropagation()
     if (window.confirm('Are you sure you want to delete this conversation?')) {
       onDelete(conversation.id)
     }
-  }
+  }, [conversation.id, onDelete])
+
+  const handleSelect = useCallback(() => {
+    if (!isEditing) {
+      onSelect(conversation.id)
+    }
+  }, [isEditing, onSelect, conversation.id])
+
+  const handleMouseEnter = useCallback(() => setShowActions(true), [])
+  const handleMouseLeave = useCallback(() => setShowActions(false), [])
 
   return (
     <div
       className={`conversation-item ${isActive ? 'active' : ''}`}
-      onClick={() => !isEditing && onSelect(conversation.id)}
-      onMouseEnter={() => setShowActions(true)}
-      onMouseLeave={() => setShowActions(false)}
+      onClick={handleSelect}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
     >
       <div className="conversation-content">
         {isEditing ? (
@@ -114,6 +123,8 @@ const ConversationListItem: React.FC<ConversationListItemProps> = ({
       )}
     </div>
   )
-}
+})
+
+ConversationListItem.displayName = 'ConversationListItem'
 
 export default ConversationListItem
